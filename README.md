@@ -2,11 +2,7 @@
 
 High availability RabbitMQ client for Scala
 
-## Message Consumption
-
-Use AmqpConsumerActor class for message retrieval from RabbitMQ, where channel would be configured via Lyra library
-
-### Channel Configuration
+### Configuration
 
 Connection
 ```scala
@@ -33,14 +29,14 @@ Connection
 val connection = Connections.create(factory, lyraConfig)
 ```
 
-### Consumer Configuration
+### Consumer
 Use AmqpConsumerActor to retrieve messages from RabbitMQ
 
 ```scala
 AmqpConsumerActor(connection.createChannel, receivingActor, queueName, None, amqpTimeout, None, "consumer-tag", prefetchCount))
 ```
 
-### Publisher Configuration
+### Publisher
 Use AmqpPublisherActor to send message to RabbitMQ
 
 ```scala
