@@ -1,0 +1,8 @@
+To build the library use the command:
+
+$ sbt assembly
+
+This will build a single jar file that can be used for connecting to RabbitMQ
+
+To add the library as dependency add following line to your dependencies list in the build.sbt script
+  "com.blinkboxbooks.hermes"          %% "rabbitmq-ha"                 % "1.0.0"
