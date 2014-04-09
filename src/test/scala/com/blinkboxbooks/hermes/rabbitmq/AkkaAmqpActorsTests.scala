@@ -14,6 +14,7 @@ import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 import com.rabbitmq.client.AMQP.BasicProperties
 import java.io.IOException
+import scala.language.postfixOps
 
 @RunWith(classOf[JUnitRunner])
 class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSuite with BeforeAndAfter {
