@@ -1,4 +1,4 @@
-# Rabbit-MQ HA Library
+# Rabbit-MQ HA Library [![Build Status](http://teamcity01.mobcastdev.local:8111/app/rest/builds/buildType:%28id:Hermes_RabbitMQ_HA_BuildPublish%29/statusIcon)](http://teamcity01.mobcastdev.local:8111/viewType.html?buildTypeId=Hermes_RabbitMQ_HA_BuildPublish&guest=1)
 
 High availability RabbitMQ client for Scala
 
