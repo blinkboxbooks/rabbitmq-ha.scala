@@ -24,11 +24,3 @@ resolvers += "Akka Repo" at "http://repo.akka.io/releases"
 
 parallelExecution := false
 
-// Pick up login credentials for Nexus from user's directory.
-credentials += Credentials(Path.userHome / ".sbt" / ".nexus")
-
-publishTo := {
-  val nexus = "http://nexus.mobcast.co.uk/"
-  Some("Sonatype Nexus Repository Manager" at nexus + "nexus/content/repositories/releases")
-}
-
