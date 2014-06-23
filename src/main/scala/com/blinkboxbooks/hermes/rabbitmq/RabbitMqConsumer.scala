@@ -10,6 +10,7 @@ import java.nio.charset.{ Charset, StandardCharsets }
 import org.joda.time.DateTime
 import scala.collection.JavaConverters._
 import scala.util.Try
+
 import RabbitMqConsumer._
 
 /**
@@ -18,6 +19,10 @@ import RabbitMqConsumer._
  * in the blinkbox books platform services.
  *
  * This also handles acknowledgment of messages, using the Cameo pattern.
+ *
+ * This class assumes the given Channel is reliable, so will not try to reconnect channels on failure.
+ * Hence it should be used with an API that provides such reliable channels, e.g. Lyra.
+ *
  */
 class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consumerTag: String, output: ActorRef)
   extends Actor with ActorLogging {
