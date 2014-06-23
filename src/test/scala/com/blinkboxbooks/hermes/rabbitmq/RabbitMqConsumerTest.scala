@@ -126,10 +126,8 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
 
   test("Message that fails to process") {
 
-    val properties = basicProperties.build()
-
     // Send a message through the callback.
-    consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(StandardCharsets.UTF_8))
+    consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(StandardCharsets.UTF_8))
 
     within(1.seconds) {
       val message = receiveOne(500.millis)
@@ -139,7 +137,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
     // Respond with Failure.
     lastSender ! Status.Failure(new Exception("Test Exception"))
 
-    // Check that message was nacked and requeued.
+    // Check that message was nacked and re-queued.
     nackWaiter.await()
     verify(channel).basicNack(envelope.getDeliveryTag, false, true)
     verify(channel, never).basicAck(anyLong, anyBoolean)

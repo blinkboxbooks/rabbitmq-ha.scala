@@ -22,15 +22,21 @@ import RabbitMqConsumer._
 class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consumerTag: String, output: ActorRef)
   extends Actor with ActorLogging {
 
-  // TODO: Use become().
-  def receive = {
+  def receive = initialising
+
+  def initialising: Receive = {
     case Init =>
       init()
+      context.become(initialised)
       sender ! Status.Success("Initialised")
+    case msg => log.error(s"Unexpected message in uninitialised consumer: $msg")
+  }
+
+  def initialised: Receive = {
     case msg: RabbitMqMessage =>
       val handler = context.actorOf(Props(new EventHandlerCameo(channel, msg.envelope.getDeliveryTag)))
       output.tell(toEvent(msg), handler)
-    case msg => log.error(s"Unexpected message: $msg")
+    case msg => log.error(s"Unexpected message in initialised consumer: $msg")
   }
 
   private def init() {
