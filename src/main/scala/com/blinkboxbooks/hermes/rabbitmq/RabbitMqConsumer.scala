@@ -1,15 +1,16 @@
 package com.blinkboxbooks.hermes.rabbitmq
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
-import akka.actor.Status
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
+import akka.actor.Status.{ Success, Failure }
 import akka.util.Timeout
 import com.blinkbox.books.messaging._
 import com.rabbitmq.client._
+import com.typesafe.config.Config
 import java.nio.charset.{ Charset, StandardCharsets }
 import org.joda.time.DateTime
-import RabbitMqConsumer._
 import scala.collection.JavaConverters._
 import scala.util.Try
+import RabbitMqConsumer._
 
 /**
  * This actor class consumes messages from RabbitMQ and passes them on as
@@ -21,24 +22,30 @@ import scala.util.Try
 class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consumerTag: String, output: ActorRef)
   extends Actor with ActorLogging {
 
-  channel.basicQos(queueConfig.preFetchCount)
-  val newConsumer = createConsumer(channel)
-  channel.queueDeclare(queueConfig.queueName, true, false, false, null)
-
-  channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
-  for (routingKey <- queueConfig.routingKeys) {
-    channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
-  }
-
-  println("Consuming!!!")
-  channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
-  println(s"6: ${queueConfig.queueName}, false, $consumerTag, $newConsumer")
-
+  // TODO: Use become().
   def receive = {
+    case Init =>
+      init()
+      sender ! Status.Success("Initialised")
     case msg: RabbitMqMessage =>
       val handler = context.actorOf(Props(new EventHandlerCameo(channel, msg.envelope.getDeliveryTag)))
       output.tell(toEvent(msg), handler)
     case msg => log.error(s"Unexpected message: $msg")
+  }
+
+  private def init() {
+    log.debug("Initialising RabbitMQ channel")
+    channel.basicQos(queueConfig.prefetchCount)
+    val newConsumer = createConsumer(channel)
+    channel.queueDeclare(queueConfig.queueName, true, false, false, null)
+
+    channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
+    for (routingKey <- queueConfig.routingKeys) {
+      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
+    }
+
+    channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
+    log.debug("RabbitMQ channel initialised")
   }
 
   private def toEvent(msg: RabbitMqMessage): Event = {
@@ -47,7 +54,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     val encoding = Option(msg.properties.getContentEncoding())
       .map(Charset.forName(_))
       .getOrElse(StandardCharsets.UTF_8)
-    val messageId = msg.properties.getMessageId()
+    val messageId = Option(msg.properties.getMessageId()).getOrElse("unknown") // To cope with legacy messages.
     val userId = Option(msg.properties.getUserId())
     val transactionId = for (
       headers <- Option(msg.properties.getHeaders);
@@ -75,7 +82,18 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 
 object RabbitMqConsumer {
 
-  case class QueueConfiguration(queueName: String, exchangeName: String, routingKeys: Seq[String], preFetchCount: Int)
+  case object Init
+  case class QueueConfiguration(queueName: String, exchangeName: String, routingKeys: Seq[String], prefetchCount: Int)
+
+  object QueueConfiguration {
+    def apply(config: Config): QueueConfiguration = {
+      val queueName = config.getString("queueName")
+      val exchangeName = config.getString("exchangeName")
+      val routingKeys = config.getStringList("routingKeys").asScala.toList
+      val prefetchCount = config.getInt("prefetchCount")
+      QueueConfiguration(queueName, exchangeName, routingKeys, prefetchCount)
+    }
+  }
 
   // Standard RabbitMQ headers used for events.
   val TransactionIdHeader = "com.blinkbox.books.transactionId"
@@ -88,17 +106,18 @@ object RabbitMqConsumer {
   private class EventHandlerCameo(channel: Channel, deliveryTag: Long) extends Actor with ActorLogging {
 
     def receive = {
-      case Status.Success(_) => {
+      case Success(_) =>
         log.debug(s"ACKing message $deliveryTag")
         if (Try(channel.basicAck(deliveryTag, false)).isFailure)
-          log.warning(s"Faile to ACK message $deliveryTag")
+          log.warning(s"Failed to ACK message $deliveryTag")
         context.stop(self)
-      }
-      case Status.Failure(e) =>
-        log.warning(s"NACKing message $deliveryTag")
-        if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
-          log.warning(s"Faile to ACK message $deliveryTag")
+      case Failure(e) =>
+        log.warning(s"NACKing message $deliveryTag", e)
+        if (Try(channel.basicNack(deliveryTag, false, true)).isFailure)
+          log.warning(s"Failed to NACK message $deliveryTag")
         context.stop(self)
+      case msg =>
+        log.warning(s"Unexpected message: $msg")
     }
   }
 
