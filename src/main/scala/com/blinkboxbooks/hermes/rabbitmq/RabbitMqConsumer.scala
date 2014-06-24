@@ -19,9 +19,14 @@ import RabbitMqConsumer._
  * in the blinkbox books platform services.
  *
  * This also handles acknowledgment of messages, using the Cameo pattern.
+ * The output actors that messages are forwarded to are responsible for responding with a success or failure
+ * so that the incoming message can be acked or nacked.
  *
  * This class assumes the given Channel is reliable, so will not try to reconnect channels on failure.
- * Hence it should be used with an API that provides such reliable channels, e.g. Lyra.
+ * Hence it should be used with a library that provides such reliable channels, e.g. Lyra.
+ *
+ * This class will not handle retrying in the case of failure scenarios, any such behaviour has to
+ * be implemented in downstream actors if desired.
  *
  */
 class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consumerTag: String, output: ActorRef)
@@ -40,8 +45,30 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
   def initialised: Receive = {
     case msg: RabbitMqMessage =>
       val handler = context.actorOf(Props(new EventHandlerCameo(channel, msg.envelope.getDeliveryTag)))
-      output.tell(toEvent(msg), handler)
+      toEvent(msg) match {
+        case util.Success(event) =>
+          println("* Got valid event")
+          output.tell(event, handler)
+        case util.Failure(e) =>
+          println("# Got invalid event")
+          handleInvalidMessage(msg, e)
+      }
     case msg => log.error(s"Unexpected message in initialised consumer: $msg")
+  }
+
+  /**
+   *  Deal with incoming message that can't be converted to a validd Event.
+   *  The current policy for this is:
+   *
+   *  - NACK it to RabbitMQ without requeuing it (to avoid loops, and to enable
+   *  RabbitMQ dead-letter handling of the message.
+   *  - Log it for manual inspection.
+   */
+  def handleInvalidMessage(msg: RabbitMqMessage, e: Throwable) = {
+    val deliveryTag = msg.envelope.getDeliveryTag
+    if (Try(channel.basicNack(deliveryTag, false, true)).isFailure)
+      log.warning(s"Failed to NACK message $deliveryTag")
+    log.error(s"Received invalid message:\n$msg", e)
   }
 
   private def init() {
@@ -59,8 +86,8 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     log.debug("RabbitMQ channel initialised")
   }
 
-  private def toEvent(msg: RabbitMqMessage): Event = {
-    val timestamp = new DateTime(Option(msg.properties.getTimestamp()).getOrElse(DateTime.now))
+  private def toEvent(msg: RabbitMqMessage): Try[Event] = Try {
+    val timestamp = new DateTime(Option(msg.properties.getTimestamp()).getOrElse(throw new IllegalArgumentException("Missing timestamp in event")))
     val contentType = Option(msg.properties.getContentType()).getOrElse(ContentType.XmlContentType.mediaType)
     val encoding = Option(msg.properties.getContentEncoding())
       .map(Charset.forName(_))

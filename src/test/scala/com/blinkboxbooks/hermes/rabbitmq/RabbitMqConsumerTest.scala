@@ -8,7 +8,7 @@ import com.rabbitmq.client.{ ConfirmListener, MessageProperties, Envelope, Chann
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.{ Config, ConfigFactory }
 import java.io.IOException
-import java.nio.charset.StandardCharsets
+import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Date
 import org.junit.runner.RunWith
 import org.mockito.{ Matchers, ArgumentCaptor }
@@ -23,9 +23,18 @@ import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 
+import RabbitMqConsumerTest._
+import akka.testkit.EventFilter
+
+object RabbitMqConsumerTest {
+  val TestEventListener = """
+    akka.loggers = ["akka.testkit.TestEventListener"]
+    """
+}
+
 @RunWith(classOf[JUnitRunner])
-class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with ImplicitSender
-  with FunSuiteLike with BeforeAndAfter with MockitoSugar with AsyncAssertions with AnswerSugar {
+class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFactory.parseString(TestEventListener)))
+  with ImplicitSender with FunSuiteLike with BeforeAndAfter with MockitoSugar with AsyncAssertions with AnswerSugar {
 
   import RabbitMqConsumer._
 
@@ -40,12 +49,12 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
   val messageContent = "<test>Test message</test>"
   val messageTimestamp = new Date()
 
-  val ackWaiter = new Waiter
-  val nackWaiter = new Waiter
-
   var channel: Channel = _
   var actor: ActorRef = _
   var consumer: Consumer = _
+
+  var ackWaiter: Waiter = _
+  var nackWaiter: Waiter = _
 
   before {
     channel = mock[Channel]
@@ -60,6 +69,9 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
     consumer = consumerArgument.getValue
 
     // Set up waiters for acks/nacks.
+    ackWaiter = new Waiter()
+    nackWaiter = new Waiter()
+
     doAnswer(() => { ackWaiter.dismiss() }).when(channel).basicAck(anyLong, anyBoolean)
     doAnswer(() => { nackWaiter.dismiss() }).when(channel).basicNack(anyLong, anyBoolean, anyBoolean)
   }
@@ -73,7 +85,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
       .build()
 
     // Send a test message through the callback.
-    consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(StandardCharsets.UTF_8))
+    consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
 
     within(1.seconds) {
       val message = receiveOne(500.millis)
@@ -81,7 +93,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
 
       assert(event.header.id == messageId
         && event.body.contentType.charset.isDefined
-        && event.body.contentType.charset.get == StandardCharsets.UTF_8
+        && event.body.contentType.charset.get == UTF_8
         && event.body.asString == messageContent
         && event.header.originator == originator
         && event.header.userId == Some(userId)
@@ -101,7 +113,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
 
   test("Consume message without optional header fields") {
     // Send a test message through the callback.
-    consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(StandardCharsets.UTF_8))
+    consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(UTF_8))
 
     within(1.seconds) {
       val message = receiveOne(500.millis)
@@ -109,7 +121,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
 
       assert(event.header.id == messageId
         && event.body.contentType.charset.isDefined
-        && event.body.contentType.charset.get == StandardCharsets.UTF_8
+        && event.body.contentType.charset.get == UTF_8
         && event.body.asString == messageContent
         && event.header.originator == originator
         && event.header.timestamp.getMillis == messageTimestamp.getTime)
@@ -124,10 +136,31 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
     verify(channel, never).basicNack(anyLong, anyBoolean, anyBoolean)
   }
 
-  test("Message that fails to process") {
+  test("Incoming message without required fields") {
+    checkRejectsInvalidMessage(new BasicProperties.Builder().build)
+  }
 
-    // Send a message through the callback.
-    consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(StandardCharsets.UTF_8))
+  test("Incoming message with invalid charset") {
+    checkRejectsInvalidMessage(basicProperties.contentEncoding("INVALID").build)
+  }
+
+  def checkRejectsInvalidMessage(properties: BasicProperties) = {
+    within(1000.millis) {
+      // Invalid message should be logged, nacked, and not passed on..
+      EventFilter.error(pattern = ".*invalid.*", occurrences = 1) intercept {
+        // Trigger input message.
+        consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
+        expectNoMsg
+      }
+      nackWaiter.await()
+      verify(channel).basicNack(envelope.getDeliveryTag, false, true)
+      verify(channel, never).basicAck(anyLong, anyBoolean)
+    }
+  }
+
+  test("Message that fails to process") {
+    // Trigger input message.
+    consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(UTF_8))
 
     within(1.seconds) {
       val message = receiveOne(500.millis)
@@ -156,7 +189,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system")) with Impl
     .messageId(messageId)
     .timestamp(messageTimestamp)
     .appId(originator)
-    .contentEncoding(StandardCharsets.UTF_8.name)
+    .contentEncoding(UTF_8.name)
     .contentType(ContentType.XmlContentType.mediaType)
 
   private def waitUntilStarted(actor: ActorRef) {

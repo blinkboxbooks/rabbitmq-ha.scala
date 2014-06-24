@@ -5,7 +5,7 @@ import org.mockito.invocation.InvocationOnMock
 import scala.language.implicitConversions
 
 /**
- * A convenient pair of rappers that lets you pass in closures to Mockito's doAnswer/thenAnswer methods.
+ * A convenient pair of wrappers that lets you pass in closures to Mockito's doAnswer/thenAnswer methods.
  * See http://henningpetersen.com/post/10/using-mockito-answers-with-scala-2-9 for details.
  */
 trait AnswerSugar {
