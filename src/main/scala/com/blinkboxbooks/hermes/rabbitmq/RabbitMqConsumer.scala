@@ -66,7 +66,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
    */
   def handleInvalidMessage(msg: RabbitMqMessage, e: Throwable) = {
     val deliveryTag = msg.envelope.getDeliveryTag
-    if (Try(channel.basicNack(deliveryTag, false, true)).isFailure)
+    if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
       log.warning(s"Failed to NACK message $deliveryTag")
     log.error(s"Received invalid message:\n$msg", e)
   }

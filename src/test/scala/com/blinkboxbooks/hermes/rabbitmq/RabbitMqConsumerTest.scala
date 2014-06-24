@@ -153,7 +153,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
         expectNoMsg
       }
       nackWaiter.await()
-      verify(channel).basicNack(envelope.getDeliveryTag, false, true)
+      verify(channel).basicNack(envelope.getDeliveryTag, false, false)
       verify(channel, never).basicAck(anyLong, anyBoolean)
     }
   }
