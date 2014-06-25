@@ -27,6 +27,7 @@ import RabbitMqConsumerTest._
 import akka.testkit.EventFilter
 
 object RabbitMqConsumerTest {
+  // Enable actor's logging to be checked.
   val TestEventListener = """
     akka.loggers = ["akka.testkit.TestEventListener"]
     """
@@ -147,7 +148,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   def checkRejectsInvalidMessage(properties: BasicProperties) = {
     within(1000.millis) {
       // Invalid message should be logged, nacked, and not passed on..
-      EventFilter.error(pattern = ".*invalid.*", occurrences = 1) intercept {
+      EventFilter.error(pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
         // Trigger input message.
         consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
         expectNoMsg
