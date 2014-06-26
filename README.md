@@ -2,12 +2,20 @@
 
 This library contains various helpers classes for interacting with RabbitMQ in a standard, reliable way.
 
+### Standard configuration for RabbitMQ
+
+The library defines the class `RabbitMqConfig` which has values for the various settings needed to connect to RabbitMQ. The companion object also has a factory method that creates such configuration objects from standard Config objects as defined in the [common-config](/Platform/common-config) library, using specific parameters listed on the [Service configuration guidelines](http://jira.blinkbox.local/confluence/display/PT/Service+Configuration+Guidelines) page.
+
 ### Reliable broker connections
 
-The class RabbitMq has a method `reliableConnection`, which will return a conncetion to the RabbitMQ broker that will automatically reconnect after failures, and restore the state of any Channels created on this connection.
+The class RabbitMq has a method `reliableConnection`, which will return a connection to the RabbitMQ broker that will automatically reconnect after failures, and restore the state of any Channels created on this connection.
 
-The connection takes parameters as listed on the [Service configuration guidelines](http://jira.blinkbox.local/confluence/display/PT/Service+Configuration+Guidelines) page. The broker URL parameter is required, whereas the two parameters specifying reconnection intervals has defaults provided by the library (that can be overridden if desired).
+This method takes the `RabbitMqConfig` object mentioned above as argument. Typically, applications will use this line of code to create a RabbitMq connection:
+
+```scala
+val connection = RabbitMq.reliableConnection(RabbitMqConfig(config))
 ```
+where `config` is the configuration returned by the standard `Configuration` trait.
 
 ### Common RabbitMQ message consumer
 
