@@ -65,10 +65,8 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
     case TimedOut(seqNo) => updateConfirmedMessages(seqNo, false, timeoutFailure)
   }
 
-  private def publishMessage(seqNo: Long, event: Event) = Try {
-    val properties = propertiesForEvent(event)
-    channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)
-  }
+  private def publishMessage(seqNo: Long, event: Event) =
+    Try(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content))
 
   private val nackFailure = Failure(new PublishException("Message not successfully received"))
   private val timeoutFailure = Failure(new PublishException(s"Message timed out after $messageTimeout"))
@@ -112,7 +110,10 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
 
 object RabbitMqConfirmedPublisher {
 
+  /** Message used for triggering publishing of event. */
   case class PublishRequest(event: Event)
+
+  /** Exception that may be returned in failure respones from actor. */
   case class PublishException(message: String, cause: Throwable = null) extends Exception(message, cause)
 
   private case class Ack(seqNo: Long, multiple: Boolean)

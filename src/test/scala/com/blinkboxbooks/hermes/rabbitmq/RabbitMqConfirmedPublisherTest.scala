@@ -131,6 +131,11 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // ## Simplify the ack+nack test cases?
     fail("TODO")
   }
+  
+  test("Send invalid Event") {
+    // Consider if this is really an issue.
+    fail("TODO")
+  }
 
   test("Message times out") {
     // Use a real, concurrent actor for this test case, with a very short timeout.
