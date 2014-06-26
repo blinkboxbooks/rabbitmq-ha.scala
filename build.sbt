@@ -11,7 +11,6 @@ libraryDependencies ++= Seq(
   "com.blinkbox.books" %% "common-messaging" % "0.1.0",
   "com.typesafe.akka" %% "akka-actor"   % "2.3.3",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.3",
-  "com.typesafe"      %% "scalalogging-slf4j" % "1.1.0",
   "com.rabbitmq"       % "amqp-client"  % "3.3.2",
   "net.jodah"          % "lyra"         % "0.4.1",
   "org.joda"           % "joda-convert" % "1.6",
