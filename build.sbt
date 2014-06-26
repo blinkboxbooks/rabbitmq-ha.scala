@@ -21,9 +21,5 @@ libraryDependencies ++= Seq(
 
 scalacOptions ++= Seq("-feature", "-deprecation")
 
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
-
-resolvers += "Akka Repo" at "http://repo.akka.io/releases"
-
 parallelExecution := false
 
