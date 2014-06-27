@@ -2,7 +2,6 @@ package com.blinkboxbooks.hermes.rabbitmq
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import akka.actor.Status.{ Status, Success, Failure }
-import akka.util.Timeout
 import com.blinkbox.books.messaging.{ ContentType, Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties

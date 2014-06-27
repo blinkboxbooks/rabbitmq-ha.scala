@@ -2,6 +2,8 @@
 
 This library contains various helpers classes for interacting with RabbitMQ in a standard, reliable way.
 
+There's a standalone example in [ConfirmedPublishingExample](src/test/scala/com/blinkboxbooks/hermes/rabbitmq/ConfirmedPublishingExample.scala) that uses a number of the classes in this library, this runs against a local RabbitMQ broker and aims to illustrate how failures are dealt with etc.
+
 ### Standard configuration for RabbitMQ
 
 The library defines the class `RabbitMqConfig` which has values for the various settings needed to connect to RabbitMQ. The companion object also has a factory method that creates such configuration objects from standard Config objects as defined in the [common-config](/Platform/common-config) library, using specific parameters listed on the [Service configuration guidelines](http://jira.blinkbox.local/confluence/display/PT/Service+Configuration+Guidelines) page.
