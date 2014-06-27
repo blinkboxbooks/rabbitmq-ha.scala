@@ -1,24 +1,17 @@
 package com.blinkboxbooks.hermes.rabbitmq
 
-import akka.actor.ActorSystem
-import akka.actor.Props
-import akka.actor.Status
+import akka.actor.{ ActorSystem, Props, Status }
 import akka.pattern.ask
-import akka.testkit.ImplicitSender
-import akka.testkit.TestActorRef
-import akka.testkit.TestEventListener
-import akka.testkit.TestKit
+import akka.testkit.{ ImplicitSender, TestActorRef, TestEventListener, TestKit }
 import akka.util.Timeout
 import com.blinkbox.books.messaging.{ Event, EventHeader }
-import com.rabbitmq.client.Channel
-import com.rabbitmq.client.ConfirmListener
+import com.rabbitmq.client.{ Channel, ConfirmListener }
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.atomic.AtomicLong
 import org.junit.runner.RunWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.FunSuiteLike
+import org.scalatest.{ BeforeAndAfterEach, FunSuiteLike }
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
@@ -98,7 +91,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val response = actor ? PublishRequest(event("test 2"))
     actor ! PublishRequest(event("test 3"))
 
-    // Only ACK the middle message.
+    // Only NACK the middle message.
     confirmListener.handleNack(1, false)
 
     val util.Failure(PublishException(reason, _)) = response.value.get
@@ -107,39 +100,37 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     assert(actor.underlyingActor.pendingConfirmation.keySet == Set(0, 2))
   }
 
-  test("Acked multiple messages") {
-    fail("TODO")
+  test("Ack multiple messages") {
+    val response1 = actor ? PublishRequest(event("test 1"))
+    val response2 = actor ? PublishRequest(event("test 2"))
+    actor ! PublishRequest(event("test 3"))
+
+    // ACK messages up to and including the second one.
+    confirmListener.handleAck(1, true)
+
+    val util.Success(_) = response1.value.get
+    val util.Success(_) = response2.value.get
+
+    // Should leave later message pending.
+    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(2))
   }
 
-  test("Nacked multiple messages") {
-    fail("TODO")
-  }
+  test("Ack for unknown message") {
+    actor ! PublishRequest(event("test 1"))
+    actor ! PublishRequest(event("test 2"))
+    actor ! PublishRequest(event("test 3"))
 
-  test("Acked multiple messages while others remain") {
-    fail("TODO")
-  }
+    // ACK messages up to and including the second one.
+    confirmListener.handleAck(42, false)
 
-  test("Nacked multiple messages remain") {
-    fail("TODO")
-  }
-
-  test("Receiving ack for unknown message") {
-    fail("TODO")
-  }
-
-  test("Receiving nack for unknown message") {
-    // ## Simplify the ack+nack test cases?
-    fail("TODO")
-  }
-  
-  test("Send invalid Event") {
-    // Consider if this is really an issue.
-    fail("TODO")
+    // Should leave all message pending.
+    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(0, 1, 2))
   }
 
   test("Message times out") {
     // Use a real, concurrent actor for this test case, with a very short timeout.
-    val concurrentActor = system.actorOf(Props(new RabbitMqConfirmedPublisher(channel, ExchangeName, Topic, 100.millis)))
+    val concurrentActor = system.actorOf(
+      Props(new RabbitMqConfirmedPublisher(channel, ExchangeName, Topic, 100.millis)))
 
     concurrentActor ! PublishRequest(event("test"))
 
