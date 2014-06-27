@@ -14,12 +14,12 @@ import scala.util.Try
 import RabbitMqConsumer._
 
 /**
- * This actor class consumes messages from RabbitMQ and passes them on as
- * queue-independent Event messages, populated with the standard fields used
+ * This actor class consumes messages from RabbitMQ topic exchanges bound to a queue,
+ * and passes them on as Rabbit-MQ independent Event messages, populated with the standard fields used
  * in the blinkbox books platform services.
  *
  * This also handles acknowledgment of messages, using the Cameo pattern.
- * The output actors that messages are forwarded to are responsible for responding with a success or failure
+ * The output actors that messages are forwarded to are responsible for responding with a Success or Failure
  * so that the incoming message can be acked or nacked.
  *
  * This class assumes the given Channel is reliable, so will not try to reconnect channels on failure.
@@ -55,7 +55,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
   }
 
   /**
-   *  Deal with incoming message that can't be converted to a validd Event.
+   *  Deal with incoming message that can't be converted to a valid Event.
    *  The current policy for this is:
    *
    *  - NACK it to RabbitMQ without requeuing it (to avoid loops, and to enable
@@ -66,7 +66,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     val deliveryTag = msg.envelope.getDeliveryTag
     if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
       log.warning(s"Failed to NACK message $deliveryTag")
-    log.error(s"Received invalid message:\n$msg", e)
+    log.error(e, s"Received invalid message:\n$msg")
   }
 
   private def init() {
@@ -148,8 +148,8 @@ object RabbitMqConsumer {
           log.warning(s"Failed to ACK message $deliveryTag")
         context.stop(self)
       case Failure(e) =>
-        log.warning(s"NACKing message $deliveryTag", e)
-        if (Try(channel.basicNack(deliveryTag, false, true)).isFailure)
+        log.warning(s"NACKing message $deliveryTag: ${e.getMessage}")
+        if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
           log.warning(s"Failed to NACK message $deliveryTag")
         context.stop(self)
       case msg =>

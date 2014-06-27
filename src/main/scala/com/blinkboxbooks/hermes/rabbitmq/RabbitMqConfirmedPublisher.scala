@@ -11,7 +11,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
- * This actor class will publish messages on a RabbitMQ channel, publishing them as persistent
+ * This actor class will publish messages to a RabbitMQ topic exchange, publishing them as persistent
  * messages, and using publisher confirms to get reliable confirmation when messages have been
  * successfully processed by a receiver. See [[https://www.rabbitmq.com/confirms.html]] for details
  * on what level of guarantees this provides.
@@ -35,6 +35,9 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
   // Tracks sequence numbers of messages that haven't been confirmed yet, and who to tell about the result.
   private[rabbitmq] var pendingMessages = Map[Long, ActorRef]()
 
+  // Declare the exchange we'll publish to, as a durable topic exchange.
+  channel.exchangeDeclare(exchange, "topic", true)
+
   // Enable RabbitMQ Publisher Confirms.
   channel.confirmSelect()
 
@@ -57,7 +60,7 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
           context.system.scheduler.scheduleOnce(messageTimeout, self, TimedOut(seqNo))
           pendingMessages += seqNo -> sender
         case util.Failure(e) =>
-          log.warning(s"Failed to publish message $seqNo to exchange '$exchange' with routing key '$routingKey'", e)
+          log.error(e, s"Failed to publish message $seqNo to exchange '$exchange' with routing key '$routingKey'")
           sender ! Failure(new PublishException("Failure when trying to publish message", e))
       }
     case Ack(seqNo, multiple) => updateConfirmedMessages(seqNo, multiple, Success())

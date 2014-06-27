@@ -22,9 +22,10 @@ import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-
 import RabbitMqConsumerTest._
 import akka.testkit.EventFilter
+import scala.reflect.ClassTag
+import java.nio.charset.UnsupportedCharsetException
 
 object RabbitMqConsumerTest {
   // Enable actor's logging to be checked.
@@ -138,17 +139,17 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   }
 
   test("Incoming message without required fields") {
-    checkRejectsInvalidMessage(new BasicProperties.Builder().build)
+    checkRejectsInvalidMessage[IllegalArgumentException](new BasicProperties.Builder().build)
   }
 
   test("Incoming message with invalid charset") {
-    checkRejectsInvalidMessage(basicProperties.contentEncoding("INVALID").build)
+    checkRejectsInvalidMessage[UnsupportedCharsetException](basicProperties.contentEncoding("INVALID").build)
   }
 
-  def checkRejectsInvalidMessage(properties: BasicProperties) = {
+  def checkRejectsInvalidMessage[T <: Throwable: ClassTag](properties: BasicProperties) = {
     within(1000.millis) {
       // Invalid message should be logged, nacked, and not passed on..
-      EventFilter.error(pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
+      EventFilter[T](pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
         // Trigger input message.
         consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
         expectNoMsg
@@ -173,7 +174,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
 
     // Check that message was nacked and re-queued.
     nackWaiter.await()
-    verify(channel).basicNack(envelope.getDeliveryTag, false, true)
+    verify(channel).basicNack(envelope.getDeliveryTag, false, false)
     verify(channel, never).basicAck(anyLong, anyBoolean)
   }
 

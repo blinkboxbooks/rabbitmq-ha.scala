@@ -19,7 +19,7 @@ libraryDependencies ++= Seq(
   "org.mockito"        % "mockito-core" % "1.9.5" % "test"
 )
 
-scalacOptions ++= Seq("-feature", "-deprecation")
+scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8", "-target:jvm-1.7")
 
 parallelExecution := false
 
