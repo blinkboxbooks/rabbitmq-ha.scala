@@ -19,16 +19,19 @@ where `config` is the configuration returned by the standard `Configuration` tra
 
 ### Common RabbitMQ message consumer
 
-Use the RabbitMqConsumer actor class to retrieve messages from RabbitMQ, where the messages comply with our standard messaging guidelines.
+Use the `RabbitMqConsumer` actor class to retrieve messages from RabbitMQ, where the messages comply with our standard messaging guidelines.
 
 
 ### General RabbitMQ message consumer
 
-Use AmqpConsumerActor to retrieve messages from RabbitMQ. The messages produced by this actor directly pass on the content of the RabbitMQ message.
+Use the `AmqpConsumerActor` class to retrieve messages from RabbitMQ. The messages produced by this actor directly pass on the content of the RabbitMQ message.
 
 This class may be deprecated once all services publish messages in the standard format.
 
 ### Reliable message publisher
 
-Use AmqpPublisherActor to send message to RabbitMQ where it's critical that published messages are not lost. This actor will publish messages as persistent messages and using publisher confirms, and it will attempt to re-deliver messages in case of failures.
+Use the `AmqpPublisherActor` class to send message to RabbitMQ where it's critical that published messages are not lost. This actor will publish messages as persistent messages and using publisher confirms, and it will attempt to re-deliver messages in case of failures.
 
+### Confirmed message publisher
+
+Use the `RabbitMqConfirmedPublisher` class to send messages to RabbitMQ in the most reliable way available (as persistent messages and using Publisher Confirms), but reporting failures back to the sender instead of retrying. This is suitable for use where you need to send messages reliably, but want to handle failures yourself instead of having some other code retrying the publising for you. One example of such cases is if the message you're processing is the result of an incoming RabbitMQ messages that's stored in a persistent queue - in such cases it's often better to just retry that message later instead of ACKing it then having to make sure it's not lost down the line.
