@@ -59,7 +59,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     confirmListener.handleAck(0, false)
 
     val util.Success(_) = response.value.get
-    assert(actor.underlyingActor.pendingConfirmation.isEmpty)
+    assert(actor.underlyingActor.pendingMessages.isEmpty)
   }
 
   test("Single nacked message") {
@@ -69,7 +69,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val util.Failure(PublishException(message, _)) = response.value.get
     assert(message.contains("not successfully received"))
 
-    assert(actor.underlyingActor.pendingConfirmation.isEmpty)
+    assert(actor.underlyingActor.pendingMessages.isEmpty)
   }
 
   test("Single acked message while others remain") {
@@ -83,7 +83,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val util.Success(_) = response.value.get
 
     // Should leave other messages pending.
-    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(0, 2))
+    assert(actor.underlyingActor.pendingMessages.keySet == Set(0, 2))
   }
 
   test("Single nacked message while others remain") {
@@ -97,7 +97,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val util.Failure(PublishException(reason, _)) = response.value.get
 
     // Should leave other messages pending.
-    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(0, 2))
+    assert(actor.underlyingActor.pendingMessages.keySet == Set(0, 2))
   }
 
   test("Ack multiple messages") {
@@ -112,7 +112,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val util.Success(_) = response2.value.get
 
     // Should leave later message pending.
-    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(2))
+    assert(actor.underlyingActor.pendingMessages.keySet == Set(2))
   }
 
   test("Ack for unknown message") {
@@ -124,7 +124,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     confirmListener.handleAck(42, false)
 
     // Should leave all message pending.
-    assert(actor.underlyingActor.pendingConfirmation.keySet == Set(0, 1, 2))
+    assert(actor.underlyingActor.pendingMessages.keySet == Set(0, 1, 2))
   }
 
   test("Message times out") {
