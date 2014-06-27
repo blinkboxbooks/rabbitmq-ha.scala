@@ -1,12 +1,13 @@
 package com.blinkboxbooks.hermes.rabbitmq
 
-import akka.actor.{ Actor, ActorLogging, ActorRef }
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import akka.actor.Status.{ Status, Success, Failure }
 import akka.util.Timeout
 import com.blinkbox.books.messaging.{ ContentType, Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
 import scala.collection.JavaConverters._
+import scala.concurrent.blocking
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
@@ -54,25 +55,20 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
   override def receive = {
     case PublishRequest(event) =>
       val seqNo = channel.getNextPublishSeqNo
-      publishMessage(seqNo, event) match {
-        case util.Success(_) =>
-          log.debug(s"Published message $seqNo to exchange '$exchange' with routing key '$routingKey'")
-          context.system.scheduler.scheduleOnce(messageTimeout, self, TimedOut(seqNo))
-          pendingMessages += seqNo -> sender
-        case util.Failure(e) =>
-          log.error(e, s"Failed to publish message $seqNo to exchange '$exchange' with routing key '$routingKey'")
-          sender ! Failure(new PublishException("Failure when trying to publish message", e))
-      }
+      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchange, routingKey, seqNo)))
+      singleMessagePublisher ! event
+      context.system.scheduler.scheduleOnce(messageTimeout, self, TimedOut(seqNo))
+      pendingMessages += seqNo -> sender
+
+    case FailedToPublish(seqNo, e) => updateConfirmedMessages(seqNo, false, publishFailure(e))
     case Ack(seqNo, multiple) => updateConfirmedMessages(seqNo, multiple, Success())
     case Nack(seqNo, multiple) => updateConfirmedMessages(seqNo, multiple, nackFailure)
     case TimedOut(seqNo) => updateConfirmedMessages(seqNo, false, timeoutFailure)
   }
 
-  private def publishMessage(seqNo: Long, event: Event) =
-    Try(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content))
-
-  private val nackFailure = Failure(new PublishException("Message not successfully received"))
-  private val timeoutFailure = Failure(new PublishException(s"Message timed out after $messageTimeout"))
+  private val nackFailure = Failure(PublishException("Message not successfully received"))
+  private val timeoutFailure = Failure(PublishException(s"Message timed out after $messageTimeout"))
+  private def publishFailure(e: Throwable) = Failure(PublishException(s"Failed to publish message", e))
 
   /**
    * Find the messages affected by the ACK/NACK, send the response to them, and remove them from
@@ -89,27 +85,6 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
   private def isAffectedByConfirmation(seqNo: Long, multiple: Boolean)(entry: (Long, ActorRef)): Boolean =
     if (multiple) entry._1 <= seqNo else entry._1 == seqNo
 
-  /** Convert Event metadata to RabbitMQ message properties. */
-  private def propertiesForEvent(event: Event): BasicProperties = {
-    // Required properties.
-    val builder = new BasicProperties.Builder()
-      .deliveryMode(MessageProperties.MINIMAL_PERSISTENT_BASIC.getDeliveryMode)
-      .messageId(event.header.id)
-      .timestamp(event.header.timestamp.toDate)
-      .appId(event.header.originator)
-      .contentType(ContentType.XmlContentType.mediaType)
-
-    // Optional properties.
-    event.header.userId.foreach { userId => builder.userId(userId) }
-    event.header.transactionId.foreach { transactionId =>
-      val headers = Map[String, Object](RabbitMqConsumer.TransactionIdHeader -> transactionId)
-      builder.headers(headers.asJava)
-    }
-    event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
-
-    builder.build()
-  }
-
 }
 
 object RabbitMqConfirmedPublisher {
@@ -123,4 +98,54 @@ object RabbitMqConfirmedPublisher {
   private case class Ack(seqNo: Long, multiple: Boolean)
   private case class Nack(seqNo: Long, multiple: Boolean)
   private case class TimedOut(seqNo: Long)
+  private case class FailedToPublish(seqNo: Long, e: Throwable)
+
+  /**
+   * Helper class that's responsible for publishing a single event.
+   */
+  private class SingleEventPublisher(channel: Channel, exchange: String, routingKey: String, seqNo: Long)
+    extends Actor with ActorLogging {
+
+    import context.dispatcher
+
+    def receive = {
+      case event: Event => publishMessage(seqNo, event) match {
+        case util.Failure(e) =>
+          sender ! FailedToPublish(seqNo, e)
+          context.stop(self)
+        case util.Success(_) =>
+          context.stop(self)
+      }
+      case msg => log.error(s"Unexpected message: $msg")
+    }
+
+    // Lyra makes the basicPublish() method blocking (e.g. when the broker connection is down),
+    // hence the need to have a separate actor deal with each call, and the use of blocking(). 
+    private def publishMessage(seqNo: Long, event: Event) =
+      Try(blocking(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)))
+
+    /** Convert Event metadata to RabbitMQ message properties. */
+    private def propertiesForEvent(event: Event): BasicProperties = {
+      // Required properties.
+      val builder = new BasicProperties.Builder()
+        .deliveryMode(MessageProperties.MINIMAL_PERSISTENT_BASIC.getDeliveryMode)
+        .messageId(event.header.id)
+        .timestamp(event.header.timestamp.toDate)
+        .appId(event.header.originator)
+        .contentType(ContentType.XmlContentType.mediaType)
+
+      // Optional properties.
+      event.header.userId.foreach { userId => builder.userId(userId) }
+      event.header.transactionId.foreach { transactionId =>
+        val headers = Map[String, Object](RabbitMqConsumer.TransactionIdHeader -> transactionId)
+        builder.headers(headers.asJava)
+      }
+      event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
+
+      builder.build()
+    }
+
+  }
+
 }
+
