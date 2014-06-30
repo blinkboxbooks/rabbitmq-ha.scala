@@ -32,7 +32,9 @@ This class may be deprecated once all services publish messages in the standard 
 
 ### Reliable message publisher
 
-Use the `AmqpPublisherActor` class to send message to RabbitMQ where it's critical that published messages are not lost. This actor will publish messages as persistent messages and using publisher confirms, and it will attempt to re-deliver messages in case of failures.
+Use the `RabbitMqReliablePublisher` class to send message to RabbitMQ where it's critical that published messages are not lost. This actor will publish messages as persistent messages and using publisher confirms, and it will attempt to re-deliver messages in case of failures.
+
+This actor does not currently give notifications back to senders whehter message publishing succeeds or not.
 
 ### Confirmed message publisher
 

@@ -1,16 +1,14 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
-import akka.actor.{ Actor, ActorRef, ActorSystem }
-import akka.actor.Props
+import akka.actor.{ Actor, ActorRef, ActorLogging, ActorSystem, Props }
 import akka.actor.Status.{ Success, Failure }
 import com.blinkbox.books.messaging.{ Event, EventHeader }
-import com.blinkboxbooks.hermes.rabbitmq.RabbitMqConsumer.QueueConfiguration
+import com.blinkbox.books.rabbitmq.RabbitMqConsumer.QueueConfiguration
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.util.Random
 import scala.xml.XML
-import akka.actor.ActorLogging
 
 /**
  * A simple ad-hoc test/example using RabbitMQ code for confirmed publishing,

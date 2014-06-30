@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import com.rabbitmq.client.Connection
 import com.typesafe.config.{ ConfigFactory, ConfigException }

@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock

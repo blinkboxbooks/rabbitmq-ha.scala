@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import akka.actor.Status.{ Status, Success, Failure }
@@ -28,7 +28,7 @@ import RabbitMqConfirmedPublisher._
  * can be re-processed at its origin, e.g. when the upstream message is already coming from a persistent queue,
  * or other persistent storage.
  *
- * @param channel This is the RabbitmQ channel that messages will be published on. Normally, you should
+ * @param channel This is the RabbitMQ channel that messages will be published on. Normally, you should
  * create a dedicated Channel for each instance of this actor.
  *
  * @param exchange The name of the exchange to publish messages to. If set to None, this actor will publish

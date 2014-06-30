@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.actor.Status.Success
