@@ -68,7 +68,8 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   override def receive = {
     case PublishRequest(event) =>
       val seqNo = channel.getNextPublishSeqNo
-      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)))
+      val singleMessagePublisher = context.actorOf(Props(
+          new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-$seqNo")
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
@@ -143,7 +144,7 @@ object RabbitMqConfirmedPublisher {
       case msg => log.error(s"Unexpected message: $msg")
     }
 
-    // Lyra makes the basicPublish() method blocking (e.g. when the broker connection is down),
+    // Lyra can make the basicPublish() method blocking (e.g. when the broker connection is down),
     // hence the need to have a separate actor deal with each call, and the use of blocking(). 
     private def publishMessage(seqNo: Long, event: Event) =
       Try(blocking(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)))

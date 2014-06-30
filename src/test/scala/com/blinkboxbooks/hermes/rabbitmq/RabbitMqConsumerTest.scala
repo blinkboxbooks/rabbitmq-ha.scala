@@ -56,7 +56,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   var consumer: Consumer = _
 
   var ackWaiter: Waiter = _
-  var nackWaiter: Waiter = _
+  var rejectWaiter: Waiter = _
 
   before {
     channel = mock[Channel]
@@ -70,12 +70,12 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     verify(channel).basicConsume(matcherEq(config.queueName), matcherEq(false), matcherEq(consumerTag), consumerArgument.capture)
     consumer = consumerArgument.getValue
 
-    // Set up waiters for acks/nacks.
+    // Set up waiters for acks/rejects.
     ackWaiter = new Waiter()
-    nackWaiter = new Waiter()
+    rejectWaiter = new Waiter()
 
     doAnswer(() => { ackWaiter.dismiss() }).when(channel).basicAck(anyLong, anyBoolean)
-    doAnswer(() => { nackWaiter.dismiss() }).when(channel).basicNack(anyLong, anyBoolean, anyBoolean)
+    doAnswer(() => { rejectWaiter.dismiss() }).when(channel).basicReject(anyLong, anyBoolean)
   }
 
   test("Consume message that succeeds, with all optional header fields set") {
@@ -108,7 +108,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
       // Check that message was acked.
       ackWaiter.await()
       verify(channel).basicAck(envelope.getDeliveryTag, false)
-      verify(channel, never).basicNack(anyLong, anyBoolean, anyBoolean)
+      verify(channel, never).basicReject(anyLong, anyBoolean)
     }
 
   }
@@ -135,7 +135,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     // Check that message was acked.
     ackWaiter.await()
     verify(channel).basicAck(envelope.getDeliveryTag, false)
-    verify(channel, never).basicNack(anyLong, anyBoolean, anyBoolean)
+    verify(channel, never).basicReject(anyLong, anyBoolean)
   }
 
   test("Incoming message without required fields") {
@@ -148,14 +148,14 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
 
   def checkRejectsInvalidMessage[T <: Throwable: ClassTag](properties: BasicProperties) = {
     within(1000.millis) {
-      // Invalid message should be logged, nacked, and not passed on..
+      // Invalid message should be logged, rejected, and not passed on..
       EventFilter[T](pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
         // Trigger input message.
         consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
         expectNoMsg
       }
-      nackWaiter.await()
-      verify(channel).basicNack(envelope.getDeliveryTag, false, false)
+      rejectWaiter.await()
+      verify(channel).basicReject(envelope.getDeliveryTag, false)
       verify(channel, never).basicAck(anyLong, anyBoolean)
     }
   }
@@ -172,9 +172,9 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     // Respond with Failure.
     lastSender ! Status.Failure(new Exception("Test Exception"))
 
-    // Check that message was nacked and re-queued.
-    nackWaiter.await()
-    verify(channel).basicNack(envelope.getDeliveryTag, false, false)
+    // Check that message was rejected and re-queued.
+    rejectWaiter.await()
+    verify(channel).basicReject(envelope.getDeliveryTag, false)
     verify(channel, never).basicAck(anyLong, anyBoolean)
   }
 

@@ -20,7 +20,7 @@ import RabbitMqConsumer._
  *
  * This also handles acknowledgment of messages, using the Cameo pattern.
  * The output actors that messages are forwarded to are responsible for responding with a Success or Failure
- * so that the incoming message can be acked or nacked.
+ * so that the incoming message can be acked or rejected.
  *
  * This class assumes the given Channel is reliable, so will not try to reconnect channels on failure.
  * Hence it should be used with a library that provides such reliable channels, e.g. Lyra.
@@ -56,14 +56,14 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
    *  Deal with incoming message that can't be converted to a valid Event.
    *  The current policy for this is:
    *
-   *  - NACK it to RabbitMQ without requeuing it (to avoid loops, and to enable
-   *  RabbitMQ dead-letter handling of the message.
+   *  - Reject it to RabbitMQ without re-queuing it (to avoid loops, and to enable
+   *  RabbitMQ dead-letter handling of the message).
    *  - Log it for manual inspection.
    */
   def handleInvalidMessage(msg: RabbitMqMessage, e: Throwable) = {
     val deliveryTag = msg.envelope.getDeliveryTag
-    if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
-      log.warning(s"Failed to NACK message $deliveryTag")
+    if (Try(channel.basicReject(deliveryTag, false)).isFailure)
+      log.warning(s"Failed to reject message $deliveryTag")
     log.error(e, s"Received invalid message:\n$msg")
   }
 
@@ -135,20 +135,20 @@ object RabbitMqConsumer {
   case class RabbitMqMessage(deliveryTag: Long, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte])
 
   /**
-   * Actor whose sole responsibility is to ack or nack a single message, then stop.
+   * Actor whose sole responsibility is to ack or reject a single message, then stop.
    */
   private class EventHandlerCameo(channel: Channel, deliveryTag: Long) extends Actor with ActorLogging {
 
     def receive = {
       case Success(_) =>
-        log.debug(s"ACKing message $deliveryTag")
+        log.debug(s"acking message $deliveryTag")
         if (Try(channel.basicAck(deliveryTag, false)).isFailure)
-          log.warning(s"Failed to ACK message $deliveryTag")
+          log.warning(s"Failed to ack message $deliveryTag")
         context.stop(self)
       case Failure(e) =>
-        log.warning(s"NACKing message $deliveryTag: ${e.getMessage}")
-        if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
-          log.warning(s"Failed to NACK message $deliveryTag")
+        log.warning(s"Rejecting message $deliveryTag: ${e.getMessage}")
+        if (Try(channel.basicReject(deliveryTag, false)).isFailure)
+          log.warning(s"Failed to reject message $deliveryTag")
         context.stop(self)
       case msg =>
         log.warning(s"Unexpected message: $msg")
