@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import com.blinkbox.books.config.RichConfig
 import com.rabbitmq.client.{ Connection, ConnectionFactory }

@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
 import akka.actor.Status.{ Success, Failure }
@@ -14,13 +14,13 @@ import scala.util.Try
 import RabbitMqConsumer._
 
 /**
- * This actor class consumes messages from RabbitMQ and passes them on as
- * queue-independent Event messages, populated with the standard fields used
+ * This actor class consumes messages from RabbitMQ topic exchanges bound to a queue,
+ * and passes them on as Rabbit-MQ independent Event messages, populated with the standard fields used
  * in the blinkbox books platform services.
  *
  * This also handles acknowledgment of messages, using the Cameo pattern.
- * The output actors that messages are forwarded to are responsible for responding with a success or failure
- * so that the incoming message can be acked or nacked.
+ * The output actors that messages are forwarded to are responsible for responding with a Success or Failure
+ * so that the incoming message can be acked or rejected.
  *
  * This class assumes the given Channel is reliable, so will not try to reconnect channels on failure.
  * Hence it should be used with a library that provides such reliable channels, e.g. Lyra.
@@ -46,27 +46,25 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     case msg: RabbitMqMessage =>
       val handler = context.actorOf(Props(new EventHandlerCameo(channel, msg.envelope.getDeliveryTag)))
       toEvent(msg) match {
-        case util.Success(event) =>
-          output.tell(event, handler)
-        case util.Failure(e) =>
-          handleInvalidMessage(msg, e)
+        case util.Success(event) => output.tell(event, handler)
+        case util.Failure(e) => handleInvalidMessage(msg, e)
       }
     case msg => log.error(s"Unexpected message in initialised consumer: $msg")
   }
 
   /**
-   *  Deal with incoming message that can't be converted to a validd Event.
+   *  Deal with incoming message that can't be converted to a valid Event.
    *  The current policy for this is:
    *
-   *  - NACK it to RabbitMQ without requeuing it (to avoid loops, and to enable
-   *  RabbitMQ dead-letter handling of the message.
+   *  - Reject it to RabbitMQ without re-queuing it (to avoid loops, and to enable
+   *  RabbitMQ dead-letter handling of the message).
    *  - Log it for manual inspection.
    */
   def handleInvalidMessage(msg: RabbitMqMessage, e: Throwable) = {
     val deliveryTag = msg.envelope.getDeliveryTag
-    if (Try(channel.basicNack(deliveryTag, false, false)).isFailure)
-      log.warning(s"Failed to NACK message $deliveryTag")
-    log.error(s"Received invalid message:\n$msg", e)
+    if (Try(channel.basicReject(deliveryTag, false)).isFailure)
+      log.warning(s"Failed to reject message $deliveryTag")
+    log.error(e, s"Received invalid message:\n$msg")
   }
 
   private def init() {
@@ -137,20 +135,20 @@ object RabbitMqConsumer {
   case class RabbitMqMessage(deliveryTag: Long, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte])
 
   /**
-   * Actor whose sole responsibility is to ack or nack a single message, then stop.
+   * Actor whose sole responsibility is to ack or reject a single message, then stop.
    */
   private class EventHandlerCameo(channel: Channel, deliveryTag: Long) extends Actor with ActorLogging {
 
     def receive = {
       case Success(_) =>
-        log.debug(s"ACKing message $deliveryTag")
+        log.debug(s"acking message $deliveryTag")
         if (Try(channel.basicAck(deliveryTag, false)).isFailure)
-          log.warning(s"Failed to ACK message $deliveryTag")
+          log.warning(s"Failed to ack message $deliveryTag")
         context.stop(self)
       case Failure(e) =>
-        log.warning(s"NACKing message $deliveryTag", e)
-        if (Try(channel.basicNack(deliveryTag, false, true)).isFailure)
-          log.warning(s"Failed to NACK message $deliveryTag")
+        log.warning(s"Rejecting message $deliveryTag: ${e.getMessage}")
+        if (Try(channel.basicReject(deliveryTag, false)).isFailure)
+          log.warning(s"Failed to reject message $deliveryTag")
         context.stop(self)
       case msg =>
         log.warning(s"Unexpected message: $msg")
