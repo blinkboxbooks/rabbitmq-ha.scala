@@ -1,5 +1,19 @@
 # Change log
 
+## 3.0.0 ([#9](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/9) 2014-06-27 15:49:20)
+
+Added actor class for message publishing with Success/Failure confirmations
+
+#### Breaking changes
+
+- Renamed `AmqpPublisherActor` to `RabbitMqReliablePublisher`, to distinguish it from the new publisher actor.
+- Changed package names from com.blinkboxbooks.hermes.rabbitmq to com.blinkbox.books.rabbitmq, for consistency with other projects.
+
+#### New features:
+
+- Added `RabbitMqConfirmedPublisher` actor class for publishing messages to RabbitMQ in a reliable fashion, with a configured timeout, where the client will receive a Success or Failure response.
+
+
 ## 2.2.0 ([#8](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/8) 2014-06-25 17:18:27)
 
 Added API for creating reliable connections in a standard, configurable way.
