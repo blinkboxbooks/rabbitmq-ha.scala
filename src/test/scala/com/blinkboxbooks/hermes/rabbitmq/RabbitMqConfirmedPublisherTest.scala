@@ -187,7 +187,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   private def setupActor(exchangeName: Option[String]): (TestActorRef[RabbitMqConfirmedPublisher], Channel, ConfirmListener) = {
     val channel = mockChannel()
-    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, exchangeName, Topic, TestMessageTimeout))
+    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Topic, TestMessageTimeout)))
     (newActor, channel, confirmListener(channel))
   }
 
@@ -201,7 +201,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     // Create actor under test.
     val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(channel, exchangeName, Topic, messageTimeout)))
+      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Topic, messageTimeout))))
 
     // Wait for it to be initialised.
     within(1.seconds) {

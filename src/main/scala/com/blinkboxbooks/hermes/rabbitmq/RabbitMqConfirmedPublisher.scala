@@ -7,8 +7,11 @@ import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
 import scala.collection.JavaConverters._
 import scala.concurrent.blocking
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.Try
+import com.typesafe.config.Config
+import java.util.concurrent.TimeUnit
+import RabbitMqConfirmedPublisher._
 
 /**
  * This actor class will publish messages to a RabbitMQ topic exchange, publishing them as persistent
@@ -36,13 +39,12 @@ import scala.util.Try
  * a failure notification for a message if confirmation hasn't been received for this.
  *
  */
-class RabbitMqConfirmedPublisher(channel: Channel, exchange: Option[String], routingKey: String, messageTimeout: FiniteDuration)
+class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguration)
   extends Actor with ActorLogging {
 
-  import RabbitMqConfirmedPublisher._
   import context.dispatcher
 
-  val exchangeName = exchange getOrElse ""
+  val exchangeName = config.exchange getOrElse ""
 
   // Tracks sequence numbers of messages that haven't been confirmed yet, and who to tell about the result.
   private[rabbitmq] var pendingMessages = Map[Long, ActorRef]()
@@ -61,14 +63,14 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: Option[String], rou
   })
 
   // Declare the exchange we'll publish to, as a durable topic exchange.
-  exchange.foreach(name => channel.exchangeDeclare(name, "topic", true))
+  config.exchange.foreach(name => channel.exchangeDeclare(name, "topic", true))
 
   override def receive = {
     case PublishRequest(event) =>
       val seqNo = channel.getNextPublishSeqNo
-      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchangeName, routingKey, seqNo)))
+      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)))
       singleMessagePublisher ! event
-      context.system.scheduler.scheduleOnce(messageTimeout, self, TimedOut(seqNo))
+      context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
 
     case FailedToPublish(seqNo, e) => updateConfirmedMessages(seqNo, false, publishFailure(e))
@@ -78,7 +80,7 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: Option[String], rou
   }
 
   private val nackFailure = Failure(PublishException("Message not successfully received"))
-  private val timeoutFailure = Failure(PublishException(s"Message timed out after $messageTimeout"))
+  private val timeoutFailure = Failure(PublishException(s"Message timed out after ${config.messageTimeout}"))
   private def publishFailure(e: Throwable) = Failure(PublishException(s"Failed to publish message", e))
 
   /**
@@ -99,6 +101,17 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: Option[String], rou
 }
 
 object RabbitMqConfirmedPublisher {
+
+  /** Settings for publisher. */
+  case class PublisherConfiguration(exchange: Option[String], routingKey: String, messageTimeout: FiniteDuration)
+  object PublisherConfiguration {
+    def apply(config: Config): PublisherConfiguration = {
+      val exchange = if (config.hasPath("exchangeName")) Some(config.getString("exchangeName")) else None
+      val routingKey = config.getString("routingKey")
+      val messageTimeout = config.getDuration("messageTimeout", TimeUnit.SECONDS).seconds
+      PublisherConfiguration(exchange, routingKey, messageTimeout)
+    }
+  }
 
   /** Message used for triggering publishing of event. */
   case class PublishRequest(event: Event)
