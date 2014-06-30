@@ -91,13 +91,13 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   private def updateConfirmedMessages(seqNo: Long, multiple: Boolean, response: Status) {
     log.debug(s"Received update for message $seqNo (multiple=$multiple): $response")
     val (confirmed, remaining) = pendingMessages.partition(isAffectedByConfirmation(seqNo, multiple))
-    confirmed.foreach(entry => entry._2 ! response)
+    confirmed.foreach{ case (_, originator) => originator ! response }
     pendingMessages = remaining
   }
 
   /** Predicate for deciding whether a pending message is affected by a given ACK/NACK or not. */
-  private def isAffectedByConfirmation(seqNo: Long, multiple: Boolean)(entry: (Long, ActorRef)): Boolean =
-    if (multiple) entry._1 <= seqNo else entry._1 == seqNo
+  private def isAffectedByConfirmation(seqNo: Long, multiple: Boolean): PartialFunction[(Long, ActorRef), Boolean] =
+    { case (messageSeqNo, _) => if (multiple) messageSeqNo <= seqNo else messageSeqNo == seqNo }
 
 }
 
