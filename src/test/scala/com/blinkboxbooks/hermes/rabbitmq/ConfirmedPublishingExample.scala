@@ -38,7 +38,7 @@ object ConfirmedPublishingExample extends App {
     implicit val executionContext = system.dispatcher
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection.createChannel(), ExchangeName, RoutingKey, 10.seconds)), name = "publisher")
+      new RabbitMqConfirmedPublisher(connection.createChannel(), Some(ExchangeName), RoutingKey, 10.seconds)), name = "publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 
     // Send a steady stream of numbers every few seconds.

@@ -25,18 +25,27 @@ import scala.util.Try
  * can be re-processed at its origin, e.g. when the upstream message is already coming from a persistent queue,
  * or other persistent storage.
  *
+ * @param channel This is the RabbitmQ channel that messages will be published on. Normally, you should
+ * create a dedicated Channel for each instance of this actor.
+ *
+ * @param exchange The name of the exchange to publish messages to. If set to None, this actor will publish
+ * messages to the "default exchange", which in RabbitMQ means publishing directly to a queue, with the routing key
+ * being the name of the queue.
+ *
+ * @param messageTimeout The timeout for each published message, i.e. the time at which the client will receive
+ * a failure notification for a message if confirmation hasn't been received for this.
+ *
  */
-class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey: String, messageTimeout: FiniteDuration)
+class RabbitMqConfirmedPublisher(channel: Channel, exchange: Option[String], routingKey: String, messageTimeout: FiniteDuration)
   extends Actor with ActorLogging {
 
   import RabbitMqConfirmedPublisher._
   import context.dispatcher
 
+  val exchangeName = exchange getOrElse ""
+
   // Tracks sequence numbers of messages that haven't been confirmed yet, and who to tell about the result.
   private[rabbitmq] var pendingMessages = Map[Long, ActorRef]()
-
-  // Declare the exchange we'll publish to, as a durable topic exchange.
-  channel.exchangeDeclare(exchange, "topic", true)
 
   // Enable RabbitMQ Publisher Confirms.
   channel.confirmSelect()
@@ -51,10 +60,13 @@ class RabbitMqConfirmedPublisher(channel: Channel, exchange: String, routingKey:
     }
   })
 
+  // Declare the exchange we'll publish to, as a durable topic exchange.
+  exchange.foreach(name => channel.exchangeDeclare(name, "topic", true))
+
   override def receive = {
     case PublishRequest(event) =>
       val seqNo = channel.getNextPublishSeqNo
-      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchange, routingKey, seqNo)))
+      val singleMessagePublisher = context.actorOf(Props(new SingleEventPublisher(channel, exchangeName, routingKey, seqNo)))
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender

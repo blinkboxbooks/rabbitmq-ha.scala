@@ -46,10 +46,8 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     case msg: RabbitMqMessage =>
       val handler = context.actorOf(Props(new EventHandlerCameo(channel, msg.envelope.getDeliveryTag)))
       toEvent(msg) match {
-        case util.Success(event) =>
-          output.tell(event, handler)
-        case util.Failure(e) =>
-          handleInvalidMessage(msg, e)
+        case util.Success(event) => output.tell(event, handler)
+        case util.Failure(e) => handleInvalidMessage(msg, e)
       }
     case msg => log.error(s"Unexpected message in initialised consumer: $msg")
   }
