@@ -2,7 +2,7 @@ name := "rabbitmq-ha"
 
 version := scala.io.Source.fromFile("VERSION").mkString.trim
 
-organization := "com.blinkboxbooks.hermes"
+organization := "com.blinkbox.books.hermes"
 
 scalaVersion := "2.10.3"
 
