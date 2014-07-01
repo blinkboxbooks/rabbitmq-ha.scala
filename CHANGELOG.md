@@ -1,5 +1,11 @@
 # Change log
 
+## 3.0.1 ([#10](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/10) 2014-07-01 13:42:09)
+
+Fix declaration of exchanges and queues
+
+Patch that fixes declarations of queues and exchanges to cover consuming messages from manually configured exchanges, and publishing direct to queues.
+
 ## 3.0.0 ([#9](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/9) 2014-06-27 15:49:20)
 
 Added actor class for message publishing with Success/Failure confirmations
