@@ -51,34 +51,9 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   val messageContent = "<test>Test message</test>"
   val messageTimestamp = new Date()
 
-  var channel: Channel = _
-  var actor: ActorRef = _
-  var consumer: Consumer = _
-
-  var ackWaiter: Waiter = _
-  var rejectWaiter: Waiter = _
-
-  before {
-    channel = mock[Channel]
-
-    // Create actor under test.
-    actor = system.actorOf(Props(new RabbitMqConsumer(channel, config, consumerTag, self)))
-    waitUntilStarted(actor)
-
-    // Check consumer registered and get hold of the registered callback.
-    val consumerArgument = ArgumentCaptor.forClass(classOf[Consumer])
-    verify(channel).basicConsume(matcherEq(config.queueName), matcherEq(false), matcherEq(consumerTag), consumerArgument.capture)
-    consumer = consumerArgument.getValue
-
-    // Set up waiters for acks/rejects.
-    ackWaiter = new Waiter()
-    rejectWaiter = new Waiter()
-
-    doAnswer(() => { ackWaiter.dismiss() }).when(channel).basicAck(anyLong, anyBoolean)
-    doAnswer(() => { rejectWaiter.dismiss() }).when(channel).basicReject(anyLong, anyBoolean)
-  }
-
   test("Consume message that succeeds, with all optional header fields set") {
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
+
     // Add optional properties.
     val customHeaders = Map[String, Object](RabbitMqConsumer.TransactionIdHeader -> transactionId).asJava
     val properties = basicProperties
@@ -114,6 +89,8 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   }
 
   test("Consume message without optional header fields") {
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
+
     // Send a test message through the callback.
     consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(UTF_8))
 
@@ -147,6 +124,8 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   }
 
   def checkRejectsInvalidMessage[T <: Throwable: ClassTag](properties: BasicProperties) = {
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
+
     within(1000.millis) {
       // Invalid message should be logged, rejected, and not passed on..
       EventFilter[T](pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
@@ -161,6 +140,8 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   }
 
   test("Message that fails to process") {
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
+
     // Trigger input message.
     consumer.handleDelivery(consumerTag, envelope, basicProperties.build(), messageContent.getBytes(UTF_8))
 
@@ -176,6 +157,15 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     rejectWaiter.await()
     verify(channel).basicReject(envelope.getDeliveryTag, false)
     verify(channel, never).basicAck(anyLong, anyBoolean)
+  }
+
+  test("Consumer with no topics") {
+    val configuration = config.copy(routingKeys = Seq())
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor(configuration)
+
+    // Shouldn't declare a topic exchange if no routing key is given,
+    // to cope with old-style services that use manually created fanout exchanges.
+    verify(channel, times(0)).exchangeDeclare(anyString, anyString)
   }
 
   test("Create queue configuration from standard config") {
@@ -199,6 +189,27 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     within(900.millis) {
       expectMsgType[Status.Success]
     }
+  }
+
+  private def setupActor(configuration: QueueConfiguration = config): (Channel, ActorRef, Consumer, Waiter, Waiter) = {
+    val channel = mock[Channel]
+
+    // Create actor under test.
+    val actor = system.actorOf(Props(new RabbitMqConsumer(channel, config, consumerTag, self)))
+    waitUntilStarted(actor)
+
+    // Check consumer registered and get hold of the registered callback.
+    val consumerArgument = ArgumentCaptor.forClass(classOf[Consumer])
+    verify(channel).basicConsume(matcherEq(config.queueName), matcherEq(false), matcherEq(consumerTag), consumerArgument.capture)
+    val consumer = consumerArgument.getValue
+
+    // Set up waiters for acks/rejects.
+    val ackWaiter = new Waiter()
+    val rejectWaiter = new Waiter()
+
+    doAnswer(() => { ackWaiter.dismiss() }).when(channel).basicAck(anyLong, anyBoolean)
+    doAnswer(() => { rejectWaiter.dismiss() }).when(channel).basicReject(anyLong, anyBoolean)
+    (channel, actor, consumer, ackWaiter, rejectWaiter)
   }
 
 }

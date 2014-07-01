@@ -147,7 +147,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // Fake a response from the Channel.
     confirmListener.handleAck(0, false)
 
-    within(10009.millis) {
+    within(1000.millis) {
       expectMsgType[Success]
       verify(channel).basicPublish(matcherEq(ExchangeName), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
     }
