@@ -62,14 +62,21 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
     }
   })
 
-  // Declare the exchange we'll publish to, as a durable topic exchange.
-  config.exchange.foreach(name => channel.exchangeDeclare(name, "topic", true))
+  // Either declare exchange or queue, depending on what we're publishing to.
+  config.exchange match {
+    case Some(name) =>
+      channel.exchangeDeclare(name, "topic", true)
+      log.debug(s"Declared topic exchange $name, used as the exchange to publish to")
+    case None =>
+      channel.queueDeclare(config.routingKey, true, false, false, null)
+      log.debug(s"Declared queue ${config.routingKey}, used as the queue to publish directly to")
+  }
 
   override def receive = {
     case PublishRequest(event) =>
       val seqNo = channel.getNextPublishSeqNo
       val singleMessagePublisher = context.actorOf(Props(
-          new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-$seqNo")
+        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-$seqNo")
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
@@ -91,7 +98,7 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   private def updateConfirmedMessages(seqNo: Long, multiple: Boolean, response: Status) {
     log.debug(s"Received update for message $seqNo (multiple=$multiple): $response")
     val (confirmed, remaining) = pendingMessages.partition(isAffectedByConfirmation(seqNo, multiple))
-    confirmed.foreach{ case (_, originator) => originator ! response }
+    confirmed.foreach { case (_, originator) => originator ! response }
     pendingMessages = remaining
   }
 

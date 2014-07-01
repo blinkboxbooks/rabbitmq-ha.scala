@@ -68,18 +68,26 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
   }
 
   private def init() {
-    log.debug("Initialising RabbitMQ channel")
+    log.info("Initialising RabbitMQ channel")
     channel.basicQos(queueConfig.prefetchCount)
     val newConsumer = createConsumer(channel)
-    channel.queueDeclare(queueConfig.queueName, true, false, false, null)
 
-    channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
-    for (routingKey <- queueConfig.routingKeys) {
-      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
+    channel.queueDeclare(queueConfig.queueName, true, false, false, null)
+    log.debug(s"Declared queue ${queueConfig.queueName}")
+
+    // Only declare a topic exchange if at least one routing key is given.
+    // This allows legacy services that use manually created fanout exchanges to work OK. 
+    if (!queueConfig.routingKeys.isEmpty) {
+      channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
+      log.debug(s"Declared topic exchange ${queueConfig.exchangeName}")
+      for (routingKey <- queueConfig.routingKeys) {
+        channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
+        log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
+      }
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
-    log.debug("RabbitMQ channel initialised")
+    log.info("RabbitMQ channel initialised")
   }
 
   private def toEvent(msg: RabbitMqMessage): Try[Event] = Try {
