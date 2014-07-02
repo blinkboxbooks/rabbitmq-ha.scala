@@ -1,5 +1,20 @@
 # Change log
 
+## 3.0.2 ([#11](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/11) 2014-07-02 11:52:43)
+
+Bug fixes after integration testing with RabbitMQ.
+
+Patch release that fixes the following problems:
+
+- Fix queue bindings in Consumer actor so that queues that are not bound to topic exchanges will still be automatically bound.
+- Don't fail on incoming messages that haven't got a timestamp, in order to cope with existing services and messages.
+- Don't use RabbitMQ userId field as that has a specific meaning, define our own user ID header instead.
+- Ensure child actor names for publisher are unique.
+- Remove use of PurchaseRequest() wrapper, just send Event objects to Publisher.
+- Improved logging.
+- Better tests.
+
+
 ## 3.0.1 ([#10](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/10) 2014-07-01 13:42:09)
 
 Fix declaration of exchanges and queues
