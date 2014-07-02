@@ -23,6 +23,17 @@ where `config` is the configuration returned by the standard `Configuration` tra
 
 Use the `RabbitMqConsumer` actor class to retrieve messages from RabbitMQ, where the messages comply with our standard messaging guidelines.
 
+Each instance of these is configured with a `QueueConfiguration` object, which can be constructed from standard `Config`. This takes the following values:
+
+| Property name | Type    | Comment    
+| ------ | ------- | ------- |
+| queueName     | String | Name of queue.     |
+| exchangeName  | String | Name of exchange queue is bound to.   |
+| routingKeys   | List[String] | List of routing keys used to bind queues to exchange, one binding per routing key. If this consumer is binding to a fanout exchange, an empty list may be given, or a list with a single entry (the content of which doesn't matter). |
+| prefetchCount | Int | The maximum number of messages that can be in-process at once. |
+
+The consumer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.
+
 
 ### General RabbitMQ message consumer
 
@@ -39,3 +50,14 @@ This actor does not currently give notifications back to senders whehter message
 ### Confirmed message publisher
 
 Use the `RabbitMqConfirmedPublisher` class to send messages to RabbitMQ in the most reliable way available (as persistent messages and using Publisher Confirms), but reporting failures back to the sender instead of retrying. This is suitable for use where you need to send messages reliably, but want to handle failures yourself instead of having some other code retrying the publising for you. One example of such cases is if the message you're processing is the result of an incoming RabbitMQ messages that's stored in a persistent queue - in such cases it's often better to just retry that message later instead of ACKing it then having to make sure it's not lost down the line.
+
+Each instance of this actor is configured with a `PublisherConfiguration` object, which can be constructed from standard `Config`. This takes the following values:
+
+| Property name | Type    | Comment    
+| ------ | ------- | ------- |
+| messageTimeout | Duration | How long it will try before reporting a failure to publish a message. |
+| exchangeName  | String | Name of exchange messages are published to. If a service wants to publish direct to a queue (not recommended practice) then this value can be ommitted, in which case the routingKey parameter identifies the name of the queue (this is using the RabbitMQ "Default Exchange" feature).  |
+| routingKey   | String | Routing key used to route messages at the exchange published to. This value is ignored for some exchanges, e.g. fanout exchanges, in which case an empty value may be given. |
+| prefetchCount | Int | The maximum number of messages that can be in-process at once. |
+
+The producer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.

@@ -55,9 +55,10 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
 
     // Add optional properties.
-    val customHeaders = Map[String, Object](RabbitMqConsumer.TransactionIdHeader -> transactionId).asJava
+    val customHeaders = Map[String, Object](
+      RabbitMqConsumer.TransactionIdHeader -> transactionId,
+      RabbitMqConsumer.UserIdHeader -> userId).asJava
     val properties = basicProperties
-      .userId(userId)
       .headers(customHeaders)
       .build()
 
@@ -115,8 +116,26 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     verify(channel, never).basicReject(anyLong, anyBoolean)
   }
 
+  // Falls back to defaults at the moment, to cope with legacy messages.
   test("Incoming message without required fields") {
-    checkRejectsInvalidMessage[IllegalArgumentException](new BasicProperties.Builder().build)
+    val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor()
+
+    // Handle a message with no header fields.
+    val properties = new BasicProperties.Builder().build
+
+    consumer.handleDelivery(consumerTag, envelope, properties, messageContent.getBytes(UTF_8))
+
+    within(1.seconds) {
+      val message = receiveOne(500.millis)
+      val event = message.asInstanceOf[Event]
+
+      assert(event.header.id == "unknown"
+        && event.body.contentType == ContentType.XmlContentType
+        && event.body.asString == messageContent
+        && event.header.originator == "unknown"
+        && event.header.userId == None
+        && event.header.transactionId == None)
+    }
   }
 
   test("Incoming message with invalid charset") {
