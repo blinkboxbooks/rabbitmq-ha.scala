@@ -76,14 +76,18 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     log.debug(s"Declared queue ${queueConfig.queueName}")
 
     // Only declare a topic exchange if at least one routing key is given.
-    // This allows legacy services that use manually created fanout exchanges to work OK. 
+    // This allows legacy services that use manually created fanout exchanges to work OK.
     if (!queueConfig.routingKeys.isEmpty) {
       channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
       log.debug(s"Declared topic exchange ${queueConfig.exchangeName}")
-      for (routingKey <- queueConfig.routingKeys) {
-        channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
-        log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
-      }
+    }
+
+    // Binding queues to the exchange using routing keys - or a single empty routing key
+    // if the exchange isn't a topic exchange.
+    val boundRoutingKeys = if (!queueConfig.routingKeys.isEmpty) queueConfig.routingKeys else Seq("")
+    for (routingKey <- boundRoutingKeys) {
+      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
+      log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
@@ -91,22 +95,26 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
   }
 
   private def toEvent(msg: RabbitMqMessage): Try[Event] = Try {
-    val timestamp = new DateTime(Option(msg.properties.getTimestamp()).getOrElse(throw new IllegalArgumentException("Missing timestamp in event")))
+    val timestamp = new DateTime(Option(msg.properties.getTimestamp()).getOrElse(DateTime.now)) // To cope with legacy messages.
     val contentType = Option(msg.properties.getContentType()).getOrElse(ContentType.XmlContentType.mediaType)
     val encoding = Option(msg.properties.getContentEncoding())
       .map(Charset.forName(_))
-      .getOrElse(StandardCharsets.UTF_8)
     val messageId = Option(msg.properties.getMessageId()).getOrElse("unknown") // To cope with legacy messages.
-    val userId = Option(msg.properties.getUserId())
+
+    val headers = Option(msg.properties.getHeaders)
     val transactionId = for (
       headers <- Option(msg.properties.getHeaders);
       txId <- headers.asScala.get(TransactionIdHeader)
     ) yield txId.toString
+    val userId = for (
+      headers <- Option(msg.properties.getHeaders);
+      id <- headers.asScala.get(UserIdHeader)
+    ) yield id.toString
     // TBD: val flowId = Option(msg.properties.getCorrelationId())
 
     val originator = Option(msg.properties.getAppId()).getOrElse("unknown") // To cope with legacy messages.
     Event(EventHeader(messageId, new DateTime(timestamp), originator, userId, transactionId),
-      EventBody(msg.body, ContentType(contentType, Some(encoding))))
+      EventBody(msg.body, ContentType(contentType, encoding)))
   }
 
   /**
@@ -139,6 +147,7 @@ object RabbitMqConsumer {
 
   // Standard RabbitMQ headers used for events.
   val TransactionIdHeader = "com.blinkbox.books.transactionId"
+  val UserIdHeader = "com.blinkbox.books.userId"
 
   case class RabbitMqMessage(deliveryTag: Long, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte])
 

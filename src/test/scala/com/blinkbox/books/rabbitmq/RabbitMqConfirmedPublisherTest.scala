@@ -45,7 +45,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
 
     // Ask actor to publish message.
-    val response = actor ? PublishRequest(event("test 1"))
+    val response = actor ? event("test 1")
 
     // Fake a response from the Channel.
     confirmListener.handleAck(0, false)
@@ -57,7 +57,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   test("Single acked message to default exchange") {
     val (actor, channel, confirmListener) = setupActor(None)
 
-    val response = actor ? PublishRequest(event("test 1"))
+    val response = actor ? event("test 1")
 
     confirmListener.handleAck(0, false)
 
@@ -67,7 +67,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Single nacked message") {
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
-    val response = actor ? PublishRequest(event("test 1"))
+    val response = actor ? event("test 1")
     confirmListener.handleNack(0, false)
 
     val util.Failure(PublishException(message, _)) = response.value.get
@@ -78,9 +78,9 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Single acked message while others remain") {
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
-    actor ! PublishRequest(event("test 1"))
-    val response = actor ? PublishRequest(event("test 2"))
-    actor ! PublishRequest(event("test 3"))
+    actor ! event("test 1")
+    val response = actor ? event("test 2")
+    actor ! event("test 3")
 
     // Only ACK the middle message.
     confirmListener.handleAck(1, false)
@@ -93,9 +93,9 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Single nacked message while others remain") {
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
-    actor ! PublishRequest(event("test 1"))
-    val response = actor ? PublishRequest(event("test 2"))
-    actor ! PublishRequest(event("test 3"))
+    actor ! event("test 1")
+    val response = actor ? event("test 2")
+    actor ! event("test 3")
 
     // Only NACK the middle message.
     confirmListener.handleNack(1, false)
@@ -108,9 +108,9 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Ack multiple messages") {
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
-    val response1 = actor ? PublishRequest(event("test 1"))
-    val response2 = actor ? PublishRequest(event("test 2"))
-    actor ! PublishRequest(event("test 3"))
+    val response1 = actor ? event("test 1")
+    val response2 = actor ? event("test 2")
+    actor ! event("test 3")
 
     // ACK messages up to and including the second one.
     confirmListener.handleAck(1, true)
@@ -124,9 +124,9 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Ack for unknown message") {
     val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
-    actor ! PublishRequest(event("test 1"))
-    actor ! PublishRequest(event("test 2"))
-    actor ! PublishRequest(event("test 3"))
+    actor ! event("test 1")
+    actor ! event("test 2")
+    actor ! event("test 3")
 
     // ACK messages up to and including the second one.
     confirmListener.handleAck(42, false)
@@ -142,7 +142,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   test("Publish message to named exchange") {
     val (concurrentActor, channel, confirmListener) = asyncActor(Some(ExchangeName))
 
-    concurrentActor ! PublishRequest(event("test 1"))
+    concurrentActor ! event("test 1")
 
     // Fake a response from the Channel.
     confirmListener.handleAck(0, false)
@@ -156,7 +156,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   test("Publish message to default exchange") {
     val (concurrentActor, channel, confirmListener) = asyncActor(None)
 
-    concurrentActor ! PublishRequest(event("test 1"))
+    concurrentActor ! event("test 1")
 
     // Fake a response from the Channel.
     confirmListener.handleAck(0, false)
@@ -172,7 +172,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // Use a real, concurrent actor for this test case, with a very short timeout.
     val (concurrentActor, channel, confirmListener) = asyncActor(None, 100.millis)
 
-    concurrentActor ! PublishRequest(event("test"))
+    concurrentActor ! event("test")
 
     val response = expectMsgType[Status.Failure](1.second)
     assert(response.cause.isInstanceOf[PublishException])

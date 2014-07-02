@@ -44,7 +44,7 @@ object ConfirmedPublishingExample extends App {
     system.scheduler.schedule(0.seconds, 3.seconds) {
       val newValue = counter.getAndIncrement
       val event = Event.xml(s"<value>$newValue</value>", EventHeader("test-producer"))
-      publisher.tell(PublishRequest(event), responsePrinter)
+      publisher.tell(event, responsePrinter)
       println(s"Sent request with value $newValue")
     }
   }

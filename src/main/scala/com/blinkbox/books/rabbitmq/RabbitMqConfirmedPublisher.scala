@@ -5,19 +5,24 @@ import akka.actor.Status.{ Status, Success, Failure }
 import com.blinkbox.books.messaging.{ ContentType, Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
+import com.typesafe.config.Config
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.util.Try
-import com.typesafe.config.Config
-import java.util.concurrent.TimeUnit
+
 import RabbitMqConfirmedPublisher._
 
 /**
- * This actor class will publish messages to a RabbitMQ topic exchange, publishing them as persistent
+ * This actor class will publish events to a RabbitMQ topic exchange, publishing them as persistent
  * messages, and using publisher confirms to get reliable confirmation when messages have been
  * successfully processed by a receiver. See [[https://www.rabbitmq.com/confirms.html]] for details
  * on what level of guarantees this provides.
+ *
+ * To publish an Event, send the event to this actor.
  *
  * When publishing succeeds, a Success message is sent to the sender of the original request.
  *
@@ -44,7 +49,9 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
 
   import context.dispatcher
 
-  val exchangeName = config.exchange getOrElse ""
+  private val exchangeName = config.exchange getOrElse ""
+
+  private val childId = new AtomicLong(0)
 
   // Tracks sequence numbers of messages that haven't been confirmed yet, and who to tell about the result.
   private[rabbitmq] var pendingMessages = Map[Long, ActorRef]()
@@ -73,10 +80,13 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   }
 
   override def receive = {
-    case PublishRequest(event) =>
+    case event: Event =>
       val seqNo = channel.getNextPublishSeqNo
+      val childNo = childId.getAndIncrement()
+      // Note: Can't name child actor based on seqNo alone, as getting the next seqNo and incrementing it
+      // is not an atomic operation.
       val singleMessagePublisher = context.actorOf(Props(
-        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-$seqNo")
+        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-child-$childNo-seq-$seqNo")
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
@@ -85,6 +95,7 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
     case Ack(seqNo, multiple) => updateConfirmedMessages(seqNo, multiple, Success())
     case Nack(seqNo, multiple) => updateConfirmedMessages(seqNo, multiple, nackFailure)
     case TimedOut(seqNo) => updateConfirmedMessages(seqNo, false, timeoutFailure)
+    case msg => log.error(s"Unexpected message received: $msg")
   }
 
   private val nackFailure = Failure(PublishException("Message not successfully received"))
@@ -121,11 +132,8 @@ object RabbitMqConfirmedPublisher {
     }
   }
 
-  /** Message used for triggering publishing of event. */
-  case class PublishRequest(event: Event)
-
   /** Exception that may be returned in failure respones from actor. */
-  case class PublishException(message: String, cause: Throwable = null) extends Exception(message, cause)
+  case class PublishException(message: String, cause: Throwable = null) extends IOException(message, cause)
 
   private case class Ack(seqNo: Long, multiple: Boolean)
   private case class Nack(seqNo: Long, multiple: Boolean)
@@ -153,8 +161,10 @@ object RabbitMqConfirmedPublisher {
 
     // Lyra can make the basicPublish() method blocking (e.g. when the broker connection is down),
     // hence the need to have a separate actor deal with each call, and the use of blocking(). 
-    private def publishMessage(seqNo: Long, event: Event) =
-      Try(blocking(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)))
+    private def publishMessage(seqNo: Long, event: Event) = Try {
+      blocking(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content))
+      log.debug(s"Published message $seqNo with routing key $routingKey")
+    }
 
     /** Convert Event metadata to RabbitMQ message properties. */
     private def propertiesForEvent(event: Event): BasicProperties = {
@@ -167,11 +177,12 @@ object RabbitMqConfirmedPublisher {
         .contentType(ContentType.XmlContentType.mediaType)
 
       // Optional properties.
-      event.header.userId.foreach { userId => builder.userId(userId) }
-      event.header.transactionId.foreach { transactionId =>
-        val headers = Map[String, Object](RabbitMqConsumer.TransactionIdHeader -> transactionId)
-        builder.headers(headers.asJava)
-      }
+      val userIdHeader = event.header.userId map { userId => (RabbitMqConsumer.UserIdHeader -> userId) }
+      val transactionIdHeader = event.header.transactionId.map { transactionId => (RabbitMqConsumer.TransactionIdHeader -> transactionId) }
+      
+      val allHeaders = Map[String, Object]() ++ List(userIdHeader, transactionIdHeader).flatten
+      builder.headers(allHeaders.asJava)
+
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
 
       builder.build()
