@@ -7,7 +7,6 @@ import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.Config
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.blocking
@@ -51,8 +50,6 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
 
   private val exchangeName = config.exchange getOrElse ""
 
-  private val childId = new AtomicLong(0)
-
   // Tracks sequence numbers of messages that haven't been confirmed yet, and who to tell about the result.
   private[rabbitmq] var pendingMessages = Map[Long, ActorRef]()
 
@@ -82,11 +79,10 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   override def receive = {
     case event: Event =>
       val seqNo = channel.getNextPublishSeqNo
-      val childNo = childId.getAndIncrement()
       // Note: Can't name child actor based on seqNo alone, as getting the next seqNo and incrementing it
       // is not an atomic operation.
       val singleMessagePublisher = context.actorOf(Props(
-        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-child-$childNo-seq-$seqNo")
+        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-for-${event.header.id}")
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
@@ -180,7 +176,7 @@ object RabbitMqConfirmedPublisher {
       val userIdHeader = event.header.userId map { userId => (RabbitMqConsumer.UserIdHeader -> userId) }
       val transactionIdHeader = event.header.transactionId.map { transactionId => (RabbitMqConsumer.TransactionIdHeader -> transactionId) }
       
-      val allHeaders = Map[String, Object]() ++ List(userIdHeader, transactionIdHeader).flatten
+      val allHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
       builder.headers(allHeaders.asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }

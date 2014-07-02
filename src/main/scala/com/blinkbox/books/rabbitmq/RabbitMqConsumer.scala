@@ -100,17 +100,11 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     val encoding = Option(msg.properties.getContentEncoding())
       .map(Charset.forName(_))
     val messageId = Option(msg.properties.getMessageId()).getOrElse("unknown") // To cope with legacy messages.
-
-    val headers = Option(msg.properties.getHeaders)
-    val transactionId = for (
-      headers <- Option(msg.properties.getHeaders);
-      txId <- headers.asScala.get(TransactionIdHeader)
-    ) yield txId.toString
-    val userId = for (
-      headers <- Option(msg.properties.getHeaders);
-      id <- headers.asScala.get(UserIdHeader)
-    ) yield id.toString
     // TBD: val flowId = Option(msg.properties.getCorrelationId())
+    
+    val headers = Option(msg.properties.getHeaders).map(_.asScala)
+    val transactionId = headers.flatMap(_.get(TransactionIdHeader)).map(_.toString)
+    val userId = headers.flatMap(_.get(UserIdHeader)).map(_.toString)
 
     val originator = Option(msg.properties.getAppId()).getOrElse("unknown") // To cope with legacy messages.
     Event(EventHeader(messageId, new DateTime(timestamp), originator, userId, transactionId),
