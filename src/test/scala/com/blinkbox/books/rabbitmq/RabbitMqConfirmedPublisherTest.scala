@@ -170,7 +170,6 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Publish message with content type") {
     val (concurrentActor, channel, confirmListener) = asyncActor(None)
-
     concurrentActor ! eventJson("test 1")
 
     // Fake a response from the Channel.
