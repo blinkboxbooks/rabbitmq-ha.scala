@@ -1,5 +1,13 @@
 # Change log
 
+## 3.0.3 ([#12](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/12) 2014-07-11 15:09:31)
+
+Changed default xml content type header to received message's content type 
+
+### Bug Fix
+
+* changed default xml content type to messages' content type
+
 ## 3.0.2 ([#11](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/11) 2014-07-02 11:52:43)
 
 Bug fixes after integration testing with RabbitMQ.
