@@ -103,8 +103,10 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
    * the collection of pending messages.
    */
   private def updateConfirmedMessages(seqNo: Long, multiple: Boolean, response: Status) {
-    log.debug(s"Received update for message $seqNo (multiple=$multiple): $response")
     val (confirmed, remaining) = pendingMessages.partition(isAffectedByConfirmation(seqNo, multiple))
+    if (confirmed.nonEmpty) {
+      log.debug(s"Received update for message $seqNo (multiple=$multiple): $response")
+    }
     confirmed.foreach { case (_, originator) => originator ! response }
     pendingMessages = remaining
   }
