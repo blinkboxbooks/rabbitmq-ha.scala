@@ -5,7 +5,7 @@ import akka.actor.Status.Success
 import akka.pattern.ask
 import akka.testkit.{ ImplicitSender, TestActorRef, TestEventListener, TestKit }
 import akka.util.Timeout
-import com.blinkbox.books.messaging.{ Event, EventHeader }
+import com.blinkbox.books.messaging.{ContentType, Event, EventHeader}
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.{ Channel, ConfirmListener }
 import com.typesafe.config.ConfigFactory
@@ -168,6 +168,23 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     }
   }
 
+  test("Publish message with content type") {
+    val (concurrentActor, channel, confirmListener) = asyncActor(None)
+    concurrentActor ! eventJson("test 1")
+
+    // Fake a response from the Channel.
+    confirmListener.handleAck(0, false)
+
+    within(1000.millis) {
+      expectMsgType[Success]
+      // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
+      val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
+      verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture() , any[Array[Byte]])
+      val props  = captor.getValue
+      assert(props.getContentType === ContentType.JsonContentType.mediaType)
+    }
+  }
+
   test("Message times out") {
     // Use a real, concurrent actor for this test case, with a very short timeout.
     val (concurrentActor, channel, confirmListener) = asyncActor(None, 100.millis)
@@ -184,6 +201,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   private def event(tag: String): Event = Event.xml("<test/>", EventHeader("test"))
+  private def eventJson(tag: String): Event = Event.json("{}", EventHeader("json"))
 
   private def setupActor(exchangeName: Option[String]): (TestActorRef[RabbitMqConfirmedPublisher], Channel, ConfirmListener) = {
     val channel = mockChannel()
