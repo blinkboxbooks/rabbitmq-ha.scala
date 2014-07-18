@@ -35,7 +35,7 @@ import RabbitMqConfirmedPublisher._
  * @param connection This is the RabbitMQ connection that messages will be published on. The actor
  * will be publishing messages concurrently on multiple threads, hence will create Channels to publish
  * the messages on itself (publisher confirms don't work correctly if multiple threads publish to a single Channel,
- * see [[com.rabbitmq.client.Channel]]).
+ * see com.rabbitmq.client.Channel).
  *
  * @param config Settings that describe what how messages are published. Any exchange or queue specified here
  * will be declared by this actor on startup.
@@ -55,8 +55,9 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
     case event: Event =>
       log.debug(s"Received request to publish event, id=${event.header.id}")
       val originator = sender
-      val singleMessagePublisher = context.actorOf(Props(
-        new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.messageTimeout)),
+      val singleMessagePublisher = context.actorOf(
+        Props(new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.messageTimeout))
+          .withDispatcher("event-publisher-dispatcher"),
         name = s"msg-publisher-for-${event.header.id}")
       singleMessagePublisher ! event
 
@@ -122,7 +123,7 @@ object RabbitMqConfirmedPublisher {
   /**
    * Helper class that's responsible for publishing a single event.
    * Note that this performs blocking operations on the RabbitMQ API. This API is very hard to
-   * use in a synchronous non-blocking way, sadly, especially when using publisher confirms.
+   * use in an asynchronous, non-blocking way, sadly, especially when using publisher confirms.
    */
   private class SingleEventPublisher(channel: Channel, originator: ActorRef,
     exchange: String, routingKey: String, timeout: FiniteDuration)
