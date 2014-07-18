@@ -1,7 +1,7 @@
 package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
-import akka.actor.Status.{ Success, Failure }
+import akka.actor.Status.{ Status, Success, Failure }
 import com.blinkbox.books.messaging.{ ContentType, Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
@@ -18,14 +18,14 @@ import RabbitMqConfirmedPublisher._
 /**
  * This actor class will publish events to a RabbitMQ topic exchange, publishing them as persistent
  * messages, and using publisher confirms to get reliable confirmation when messages have been
- * successfully processed by a receiver. See [[https://www.rabbitmq.com/confirms.html]] for details
- * on what level of guarantees this provides.
+ * successfully processed by a receiver, and notifying clients about the outcome of publishing a message.
+ * See [[https://www.rabbitmq.com/confirms.html]] for details on what level of guarantees this provides.
  *
- * To publish an Event, send the event to this actor.
+ * To publish an Event, send the event object to this actor.
  *
  * When publishing succeeds, a Success message is sent to the sender of the original request.
  *
- * When publishing fails, either when a negative confirmation is received, or the timeout is reached,
+ * When publishing fails, due to either a negative confirmation or a timeout,
  * a Failure is sent to the sender.
  *
  * This class does NOT retry sending of messages. Hence it is suitable when the message being processed
@@ -35,7 +35,7 @@ import RabbitMqConfirmedPublisher._
  * @param connection This is the RabbitMQ connection that messages will be published on. The actor
  * will be publishing messages concurrently on multiple threads, hence will create Channels to publish
  * the messages on itself (publisher confirms don't work correctly if multiple threads publish to a single Channel,
- * see the JavaDoc for the Channel class).
+ * see [[com.rabbitmq.client.Channel]]).
  *
  * @param config Settings that describe what how messages are published. Any exchange or queue specified here
  * will be declared by this actor on startup.
@@ -48,15 +48,17 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
 
   private val exchangeName = config.exchange getOrElse ""
 
+  // Initialise exchanges/queues.
   initConnection()
 
   override def receive = {
     case event: Event =>
       log.debug(s"Received request to publish event, id=${event.header.id}")
+      val originator = sender
       val singleMessagePublisher = context.actorOf(Props(
-        new SingleEventPublisher(createChannel(), exchangeName, config.routingKey, config.messageTimeout)),
+        new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.messageTimeout)),
         name = s"msg-publisher-for-${event.header.id}")
-      singleMessagePublisher.tell(event, sender)
+      singleMessagePublisher ! event
 
     case msg => log.error(s"Unexpected message received: $msg")
   }
@@ -113,23 +115,41 @@ object RabbitMqConfirmedPublisher {
   /** Exception that may be returned in failure responses from actor. */
   case class PublishException(message: String, cause: Throwable = null) extends IOException(message, cause)
 
+  private case class Ack(seqNo: Long, multiple: Boolean)
+  private case class Nack(seqNo: Long, multiple: Boolean)
+  private case object TimedOut
+
   /**
    * Helper class that's responsible for publishing a single event.
    * Note that this performs blocking operations on the RabbitMQ API. This API is very hard to
    * use in a synchronous non-blocking way, sadly, especially when using publisher confirms.
    */
-  private class SingleEventPublisher(channel: Channel, exchange: String, routingKey: String, timeout: FiniteDuration)
+  private class SingleEventPublisher(channel: Channel, originator: ActorRef,
+    exchange: String, routingKey: String, timeout: FiniteDuration)
     extends Actor with ActorLogging {
 
-    def receive = {
-      case event: Event => Try(publishMessage(event)) match {
-        case util.Failure(e) =>
-          sender ! publishFailure(e)
-          context.stop(self)
-        case util.Success(_) =>
-          sender ! Success(())
-          context.stop(self)
+    import context.dispatcher
+
+    // Register callback for confirmations.
+    channel.addConfirmListener(new ConfirmListener {
+      override def handleAck(seqNo: Long, multiple: Boolean) {
+        self ! Ack(seqNo, multiple)
       }
+      override def handleNack(seqNo: Long, multiple: Boolean) {
+        self ! Nack(seqNo, multiple)
+      }
+    })
+
+    def receive = {
+      case event: Event =>
+        context.system.scheduler.scheduleOnce(timeout, self, TimedOut)
+        Try(publishMessage(event)) match {
+          case util.Failure(e) => complete(publishFailure(e))
+          case util.Success(_) => // OK
+        }
+      case Ack(seqNo, multiple) => complete(Success())
+      case Nack(seqNo, multiple) => complete(nackFailure)
+      case TimedOut => complete(timeoutFailure(timeout))
       case msg => log.error(s"Unexpected message: $msg")
     }
 
@@ -140,11 +160,17 @@ object RabbitMqConfirmedPublisher {
       // Note: Lyra can make the basicPublish() method blocking (e.g. when the broker connection is down),
       // so this needs to be inside the blocking{} block.
       channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)
-      channel.waitForConfirmsOrDie(timeout.toMillis)
       log.debug(s"Published message with ID ${event.header.id} with routing key '$routingKey'")
     }
 
+    private def complete(response: Status) {
+      originator ! response
+      context.stop(self)
+    }
+
     private def publishFailure(e: Throwable) = Failure(PublishException(s"Failed to publish message", e))
+    private def timeoutFailure(timeout: Duration) = Failure(PublishException(s"Message timed out after $timeout"))
+    private val nackFailure = Failure(PublishException("Message not successfully received"))
 
     /** Convert Event metadata to RabbitMQ message properties. */
     private def propertiesForEvent(event: Event): BasicProperties = {
