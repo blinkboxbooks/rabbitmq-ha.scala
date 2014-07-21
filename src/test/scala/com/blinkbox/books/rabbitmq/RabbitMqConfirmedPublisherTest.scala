@@ -29,9 +29,12 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   import RabbitMqConfirmedPublisher._
 
-  val ExchangeName = "test.exchange"
+  val TopicExchangeName = "test.exchange"
+  val HeadersExchangeName = "test.headers.exchange"
   val Topic = "test.topic"
+  var `type` = "topic"
   val TestMessageTimeout = 10.seconds
+  var args = None
   implicit val TestActorTimeout = Timeout(10.seconds)
 
   //
@@ -42,7 +45,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Single acked message") {
     // Initialise actor and related mocks.
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
 
     // Ask actor to publish message.
     val response = actor ? event("test 1")
@@ -66,7 +69,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Single nacked message") {
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
     val response = actor ? event("test 1")
     confirmListener.handleNack(0, false)
 
@@ -77,7 +80,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Single acked message while others remain") {
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
     actor ! event("test 1")
     val response = actor ? event("test 2")
     actor ! event("test 3")
@@ -92,7 +95,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Single nacked message while others remain") {
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
     actor ! event("test 1")
     val response = actor ? event("test 2")
     actor ! event("test 3")
@@ -107,7 +110,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Ack multiple messages") {
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
     val response1 = actor ? event("test 1")
     val response2 = actor ? event("test 2")
     actor ! event("test 3")
@@ -123,7 +126,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Ack for unknown message") {
-    val (actor, channel, confirmListener) = setupActor(Some(ExchangeName))
+    val (actor, channel, confirmListener) = setupActor(Some(TopicExchangeName))
     actor ! event("test 1")
     actor ! event("test 2")
     actor ! event("test 3")
@@ -139,8 +142,8 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   // Async tests. These check publishing, i.e. the actions handled in created child actors.
   //
 
-  test("Publish message to named exchange") {
-    val (concurrentActor, channel, confirmListener) = asyncActor(Some(ExchangeName))
+  test("Publish message to named topic exchange") {
+    val (concurrentActor, channel, confirmListener) = asyncActor(Some(TopicExchangeName), Some(Topic))
 
     concurrentActor ! event("test 1")
 
@@ -149,12 +152,27 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     within(1000.millis) {
       expectMsgType[Success]
-      verify(channel).basicPublish(matcherEq(ExchangeName), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
+      verify(channel).basicPublish(matcherEq(TopicExchangeName), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
+    }
+  }
+  
+  test("Publish message to named headers exchange") {
+    val (concurrentActor, channel, confirmListener) = asyncActor(Some(HeadersExchangeName), None)
+    `type` = "headers"
+
+    concurrentActor ! event("test 1")
+
+    // Fake a response from the Channel.
+    confirmListener.handleAck(0, false)
+
+    within(1000.millis) {
+      expectMsgType[Success]
+      verify(channel).basicPublish(matcherEq(HeadersExchangeName), matcherEq(""), any[BasicProperties], any[Array[Byte]])
     }
   }
 
   test("Publish message to default exchange") {
-    val (concurrentActor, channel, confirmListener) = asyncActor(None)
+    val (concurrentActor, channel, confirmListener) = asyncActor(None, Some(Topic))
 
     concurrentActor ! event("test 1")
 
@@ -169,7 +187,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   test("Publish message with content type") {
-    val (concurrentActor, channel, confirmListener) = asyncActor(None)
+    val (concurrentActor, channel, confirmListener) = asyncActor(None, Some(Topic))
     concurrentActor ! eventJson("test 1")
 
     // Fake a response from the Channel.
@@ -187,7 +205,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   test("Message times out") {
     // Use a real, concurrent actor for this test case, with a very short timeout.
-    val (concurrentActor, channel, confirmListener) = asyncActor(None, 100.millis)
+    val (concurrentActor, channel, confirmListener) = asyncActor(None, Some(Topic), 100.millis)
 
     concurrentActor ! event("test")
 
@@ -205,11 +223,11 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   private def setupActor(exchangeName: Option[String]): (TestActorRef[RabbitMqConfirmedPublisher], Channel, ConfirmListener) = {
     val channel = mockChannel()
-    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Topic, TestMessageTimeout)))
+    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Some(Topic), args, TestMessageTimeout, `type`)))
     (newActor, channel, confirmListener(channel))
   }
 
-  private def asyncActor(exchangeName: Option[String], messageTimeout: FiniteDuration = 1000.millis): (ActorRef, Channel, ConfirmListener) = {
+  private def asyncActor(exchangeName: Option[String], routingKey : Option[String], messageTimeout: FiniteDuration = 1000.millis): (ActorRef, Channel, ConfirmListener) = {
     val channel = mockChannel()
 
     // Create a waiter so we can wait for the (async) initialisation of the actor.
@@ -219,7 +237,27 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     // Create actor under test.
     val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Topic, messageTimeout))))
+      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, routingKey, args, messageTimeout, `type`))))
+
+    // Wait for it to be initialised.
+    within(1.seconds) {
+      actorInitWaiter.await()
+    }
+
+    (newActor, channel, confirmListener(channel))
+  }
+
+  private def asyncActorForHeaders(exchangeName: Option[String], messageTimeout: FiniteDuration = 1000.millis): (ActorRef, Channel, ConfirmListener) = {
+    val channel = mockChannel()
+
+    // Create a waiter so we can wait for the (async) initialisation of the actor.
+    val actorInitWaiter = new Waiter()
+    doAnswer(() => { actorInitWaiter.dismiss() })
+      .when(channel).addConfirmListener(any[ConfirmListener])
+
+    // Create actor under test.
+    val newActor = system.actorOf(
+      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, None, args,  messageTimeout, `type`))))
 
     // Wait for it to be initialised.
     within(1.seconds) {

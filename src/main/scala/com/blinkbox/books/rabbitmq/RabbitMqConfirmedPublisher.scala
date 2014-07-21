@@ -5,13 +5,14 @@ import akka.actor.Status.{ Status, Success, Failure }
 import com.blinkbox.books.messaging.{ ContentType, Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
-import com.typesafe.config.Config
+import com.typesafe.config.{ConfigValue, Config}
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.util.Try
+import scala.collection.JavaConversions._
 
 import RabbitMqConfirmedPublisher._
 
@@ -69,10 +70,10 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
   // Either declare exchange or queue, depending on what we're publishing to.
   config.exchange match {
     case Some(name) =>
-      channel.exchangeDeclare(name, "topic", true)
-      log.debug(s"Declared topic exchange $name, used as the exchange to publish to")
+      channel.exchangeDeclare(name, config.exchangeType, true)
+      log.debug(s"Declared $config.exchangeType exchange $name, used as the exchange to publish to")
     case None =>
-      channel.queueDeclare(config.routingKey, true, false, false, null)
+      channel.queueDeclare(config.routingKey.get, true, false, false, null)
       log.debug(s"Declared queue ${config.routingKey}, used as the queue to publish directly to")
   }
 
@@ -82,7 +83,7 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
       // Note: Can't name child actor based on seqNo alone, as getting the next seqNo and incrementing it
       // is not an atomic operation.
       val singleMessagePublisher = context.actorOf(Props(
-        new SingleEventPublisher(channel, exchangeName, config.routingKey, seqNo)), name = s"msg-publisher-for-${event.header.id}")
+        new SingleEventPublisher(channel, exchangeName, config.routingKey, config.bindingArgs, seqNo)), name = s"msg-publisher-for-${event.header.id}")
       singleMessagePublisher ! event
       context.system.scheduler.scheduleOnce(config.messageTimeout, self, TimedOut(seqNo))
       pendingMessages += seqNo -> sender
@@ -120,13 +121,22 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
 object RabbitMqConfirmedPublisher {
 
   /** Settings for publisher. */
-  case class PublisherConfiguration(exchange: Option[String], routingKey: String, messageTimeout: FiniteDuration)
+  case class PublisherConfiguration(exchange: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]],
+                                    messageTimeout: FiniteDuration, exchangeType :String)
+
   object PublisherConfiguration {
     def apply(config: Config): PublisherConfiguration = {
       val exchange = if (config.hasPath("exchangeName")) Some(config.getString("exchangeName")) else None
-      val routingKey = config.getString("routingKey")
+      val exchangeType = config.getString("exchangeType")
+      val routingKey = if (config.hasPath("routingKey")) Some(config.getString("routingKey")) else None
       val messageTimeout = config.getDuration("messageTimeout", TimeUnit.SECONDS).seconds
-      PublisherConfiguration(exchange, routingKey, messageTimeout)
+      val args =  if (config.hasPath("queueBindingArguments"))  Some(config.getObjectList("queueBindingArguments")) else None
+      val bindingArgs  = if (args.nonEmpty)
+        (for {
+          item  <- args.get
+          entry <- item.entrySet()
+        } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
+      PublisherConfiguration(exchange, routingKey, Option(bindingArgs), messageTimeout, exchangeType)
     }
   }
 
@@ -141,7 +151,7 @@ object RabbitMqConfirmedPublisher {
   /**
    * Helper class that's responsible for publishing a single event.
    */
-  private class SingleEventPublisher(channel: Channel, exchange: String, routingKey: String, seqNo: Long)
+  private class SingleEventPublisher(channel: Channel, exchange: String, routingKey: Option[String], bindingArgs: Option[Map[String,AnyRef]], seqNo: Long)
     extends Actor with ActorLogging {
 
     import context.dispatcher
@@ -160,7 +170,7 @@ object RabbitMqConfirmedPublisher {
     // Lyra can make the basicPublish() method blocking (e.g. when the broker connection is down),
     // hence the need to have a separate actor deal with each call, and the use of blocking(). 
     private def publishMessage(seqNo: Long, event: Event) = Try {
-      blocking(channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content))
+      blocking(channel.basicPublish(exchange, routingKey.getOrElse(""), propertiesForEvent(event), event.body.content))
       log.debug(s"Published message $seqNo with routing key $routingKey")
     }
 
@@ -180,6 +190,7 @@ object RabbitMqConfirmedPublisher {
       
       val allHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
       builder.headers(allHeaders.asJava)
+      if (bindingArgs.isDefined) builder.headers(bindingArgs.get.asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
 

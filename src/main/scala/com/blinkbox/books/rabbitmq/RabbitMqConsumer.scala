@@ -1,14 +1,17 @@
 package com.blinkbox.books.rabbitmq
 
+import java.util.Map.Entry
+
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
 import akka.actor.Status.{ Success, Failure }
 import akka.util.Timeout
 import com.blinkbox.books.messaging._
 import com.rabbitmq.client._
-import com.typesafe.config.Config
+import com.typesafe.config.{ConfigValue, ConfigObject, Config}
 import java.nio.charset.{ Charset, StandardCharsets }
 import org.joda.time.DateTime
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import scala.util.Try
 
 import RabbitMqConsumer._
@@ -84,10 +87,14 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 
     // Binding queues to the exchange using routing keys - or a single empty routing key
     // if the exchange isn't a topic exchange.
-    val boundRoutingKeys = if (!queueConfig.routingKeys.isEmpty) queueConfig.routingKeys else Seq("")
+    val boundRoutingKeys = if (!queueConfig.routingKeys.isEmpty) queueConfig.routingKeys else Seq()
     for (routingKey <- boundRoutingKeys) {
       channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
       log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
+    }
+
+    if (queueConfig.headerArgs.nonEmpty) {
+      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", queueConfig.headerArgs)
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
@@ -101,7 +108,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
       .map(Charset.forName(_))
     val messageId = Option(msg.properties.getMessageId()).getOrElse("unknown") // To cope with legacy messages.
     // TBD: val flowId = Option(msg.properties.getCorrelationId())
-    
+
     val headers = Option(msg.properties.getHeaders).map(_.asScala)
     val transactionId = headers.flatMap(_.get(TransactionIdHeader)).map(_.toString)
     val userId = headers.flatMap(_.get(UserIdHeader)).map(_.toString)
@@ -127,7 +134,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 object RabbitMqConsumer {
 
   case object Init
-  case class QueueConfiguration(queueName: String, exchangeName: String, routingKeys: Seq[String], prefetchCount: Int)
+  case class QueueConfiguration(queueName: String, exchangeName: String, routingKeys: Seq[String], headerArgs : Map[String, AnyRef], prefetchCount: Int)
 
   object QueueConfiguration {
     def apply(config: Config): QueueConfiguration = {
@@ -135,7 +142,14 @@ object RabbitMqConsumer {
       val exchangeName = config.getString("exchangeName")
       val routingKeys = config.getStringList("routingKeys").asScala.toList
       val prefetchCount = config.getInt("prefetchCount")
-      QueueConfiguration(queueName, exchangeName, routingKeys, prefetchCount)
+      val args =  if (config.hasPath("queueBindingArguments"))  Some(config.getObjectList("queueBindingArguments")) else None
+      val m  = if (args.nonEmpty)
+        (for {
+        item  <- args.get
+        entry <- item.entrySet()
+      } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
+
+      QueueConfiguration(queueName, exchangeName, routingKeys, m,  prefetchCount)
     }
   }
 
