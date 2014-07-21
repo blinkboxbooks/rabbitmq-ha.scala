@@ -29,6 +29,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   val ExchangeName = "test.exchange"
   val Topic = "test.topic"
   val TestMessageTimeout = 10.seconds
+  val TestTimeout = 3.seconds
   implicit val TestActorTimeout = Timeout(10.seconds)
 
   test("Publish message to named exchange") {
@@ -39,7 +40,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       verify(channel).basicPublish(matcherEq(ExchangeName), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
     }
@@ -53,7 +54,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
@@ -68,7 +69,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
       val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
@@ -83,7 +84,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     actor ! event("test")
 
-    val response = expectMsgType[Status.Failure](1.second)
+    val response = expectMsgType[Status.Failure](TestTimeout)
     assert(response.cause.isInstanceOf[PublishException])
 
     // ACKing after timeout should have no effect.
@@ -95,7 +96,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   private def event(tag: String): Event = Event.xml("<test/>", EventHeader(tag))
   private def eventJson(tag: String): Event = Event.json("{}", EventHeader(tag))
 
-  private def initActor(exchangeName: Option[String], messageTimeout: FiniteDuration = 1000.millis) = {
+  private def initActor(exchangeName: Option[String], messageTimeout: FiniteDuration = TestMessageTimeout) = {
     val (connection, channel) = mockConnection()
 
     // Create a waiter so we can wait for the (async) initialisation of the actor.
@@ -108,7 +109,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
       Props(new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(exchangeName, Topic, messageTimeout))))
 
     // Wait for it to be initialised.
-    within(1.seconds) {
+    within(TestTimeout) {
       actorInitWaiter.await()
     }
 
