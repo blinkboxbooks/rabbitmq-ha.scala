@@ -37,7 +37,7 @@ object ConfirmedPublishingWithHeadersExample extends App {
     val system = ActorSystem("producer-system")
     val counter = new AtomicInteger()
     implicit val executionContext = system.dispatcher
-    val config = ConfigFactory.load("rabbitmq-consumer-test.conf").getConfig("service.test.testQueue")
+    val config = ConfigFactory.load("rabbitmq-consumer-test-headers.conf").getConfig("service.test.testQueue")
     val queueConfig = QueueConfiguration(config)
 
     val publisher = system.actorOf(Props(

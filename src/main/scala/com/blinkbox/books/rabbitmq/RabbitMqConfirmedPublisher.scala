@@ -136,6 +136,11 @@ object RabbitMqConfirmedPublisher {
           item  <- args.get
           entry <- item.entrySet()
         } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
+
+      //check queueBindingArguments and routingKey mutual exclusion
+      if (routingKey.nonEmpty && bindingArgs.nonEmpty)
+        throw new IllegalArgumentException("queueBindingArguments and routingKey must be mutually exclusive")
+
       PublisherConfiguration(exchange, routingKey, Option(bindingArgs), messageTimeout, exchangeType)
     }
   }

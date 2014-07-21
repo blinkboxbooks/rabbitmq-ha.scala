@@ -149,6 +149,9 @@ object RabbitMqConsumer {
         entry <- item.entrySet()
       } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
 
+      //check queueBindingArguments and routingKey mutual exclusion
+      if (routingKeys.nonEmpty && m.nonEmpty)
+        throw new IllegalArgumentException("queueBindingArguments and routingKey must be mutually exclusive")
       QueueConfiguration(queueName, exchangeName, routingKeys, m,  prefetchCount)
     }
   }
