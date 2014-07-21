@@ -68,25 +68,3 @@ object ConfirmedPublishingWithHeadersExample extends App {
   println("Started!")
 
 }
-
-//// An example actor that consumes numbers from XML messages and decides what it thinks of each.
-//class TestConsumerWithHeaders extends Actor with ActorLogging {
-//  implicit val executionContext = context.system.dispatcher
-//
-//  def receive = {
-//    case e: Event =>
-//      val value = (XML.loadString(e.body.asString).text).toString.toInt
-//      log.info(s"Received value $value")
-//      if (isPrime(value)) respond(sender, Failure(new Exception(s"I hate primes like $value!!!")))
-//      else respond(sender, Success(s"Accepted value $value"))
-//  }
-//
-//  // Respond after a random interval, just to be awkward.
-//  private def respond(to: ActorRef, response: Any) { context.system.scheduler.scheduleOnce(randomDelay, to, response) }
-//  private def randomDelay = Random.nextInt(3000).millis
-//
-//  private def isPrime(num: Int) = num > 1 && !(2 until num).exists(num % _ == 0)
-//}
-
-
-
