@@ -17,6 +17,8 @@ import org.scalatest.FunSuiteLike
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
+import org.scalatest.time.Span
+import org.scalatest.time.Seconds
 import scala.concurrent.duration._
 import RabbitMqConfirmedPublisherTest._
 
@@ -30,6 +32,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   val Topic = "test.topic"
   val TestMessageTimeout = 10.seconds
   val TestTimeout = 3.seconds
+  implicit val defaultPatience = PatienceConfig(timeout = scaled(Span(5, Seconds)))
   implicit val TestActorTimeout = Timeout(10.seconds)
 
   test("Publish message to named exchange") {
