@@ -32,7 +32,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   val TopicExchangeName = "test.exchange"
   val HeadersExchangeName = "test.headers.exchange"
   val Topic = "test.topic"
-  var `type` = "topic"
+  var exchangeType = "topic"
   val TestMessageTimeout = 10.seconds
   var args = None
   implicit val TestActorTimeout = Timeout(10.seconds)
@@ -158,8 +158,6 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   
   test("Publish message to named headers exchange") {
     val (concurrentActor, channel, confirmListener) = asyncActor(Some(HeadersExchangeName), None)
-    `type` = "headers"
-
     concurrentActor ! event("test 1")
 
     // Fake a response from the Channel.
@@ -223,7 +221,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
   private def setupActor(exchangeName: Option[String]): (TestActorRef[RabbitMqConfirmedPublisher], Channel, ConfirmListener) = {
     val channel = mockChannel()
-    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Some(Topic), args, TestMessageTimeout, `type`)))
+    val newActor = TestActorRef(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, Some(Topic), args, TestMessageTimeout, exchangeType)))
     (newActor, channel, confirmListener(channel))
   }
 
@@ -237,7 +235,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     // Create actor under test.
     val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, routingKey, args, messageTimeout, `type`))))
+      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, routingKey, args, messageTimeout, exchangeType))))
 
     // Wait for it to be initialised.
     within(1.seconds) {
@@ -257,7 +255,7 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
 
     // Create actor under test.
     val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, None, args,  messageTimeout, `type`))))
+      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, None, args,  messageTimeout, exchangeType))))
 
     // Wait for it to be initialised.
     within(1.seconds) {
