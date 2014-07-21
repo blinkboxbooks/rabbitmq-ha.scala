@@ -46,7 +46,7 @@ class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
   }
 
   // Can't easily test this without a real broker, hence this test is disabled.
-  test("Create reliable connection") {
+  ignore("Create reliable connection") {
     val config = RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 1.second, 5.seconds)
     val conn = RabbitMq.reliableConnection(config)
 
@@ -64,7 +64,7 @@ class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
   }
 
   // Can't easily test this without a real broker, hence this test is disabled.
-  test("Create recovered connection") {
+  ignore("Create recovered connection") {
     val config = RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 1.second, 5.seconds)
     val conn = RabbitMq.recoveredConnection(config)
 
