@@ -3,7 +3,7 @@ package com.blinkbox.books.rabbitmq
 import com.rabbitmq.client.Connection
 import com.typesafe.config.{ ConfigFactory, ConfigException }
 import java.net.URI
-import net.jodah.lyra.config.ConfigurableConnection
+import net.jodah.lyra.config.{ ConfigurableChannel, ConfigurableConnection }
 import org.junit.runner.RunWith
 import org.scalatest.{ BeforeAndAfterEach, FunSuite }
 import org.scalatest.junit.JUnitRunner
@@ -46,10 +46,10 @@ class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
   }
 
   // Can't easily test this without a real broker, hence this test is disabled.
-  ignore("Create reliable connection") {
+  test("Create reliable connection") {
     val config = RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 1.second, 5.seconds)
     val conn = RabbitMq.reliableConnection(config)
-    
+
     // Check that broker parameters have been picked up from the given test config.
     assert(conn.getAddress.getHostName == "localhost" &&
       conn.getPort == 5672)
@@ -58,6 +58,28 @@ class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
     val lyraConnection = conn.asInstanceOf[ConfigurableConnection]
     assert(lyraConnection.getConnectionRecoveryPolicy.getInterval.toSeconds == 1 &&
       lyraConnection.getConnectionRecoveryPolicy.getMaxInterval.toSeconds == 5)
+
+    val channel = lyraConnection.createChannel.asInstanceOf[ConfigurableChannel]
+    assert(channel.getChannelRetryPolicy().getMaxAttempts() == -1, "Should retry forever")
+  }
+
+  // Can't easily test this without a real broker, hence this test is disabled.
+  test("Create recovered connection") {
+    val config = RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 1.second, 5.seconds)
+    val conn = RabbitMq.recoveredConnection(config)
+
+    // Check that broker parameters have been picked up from the given test config.
+    assert(conn.getAddress.getHostName == "localhost" &&
+      conn.getPort == 5672)
+
+    // Check that the other connection parameters come from the defaults in reference.conf.
+    val lyraConnection = conn.asInstanceOf[ConfigurableConnection]
+    assert(lyraConnection.getConnectionRecoveryPolicy.getInterval.toSeconds == 1 &&
+      lyraConnection.getConnectionRecoveryPolicy.getMaxInterval.toSeconds == 5)
+    assert(lyraConnection.getConnectionRetryPolicy == null)
+
+    val channel = lyraConnection.createChannel.asInstanceOf[ConfigurableChannel]
+    assert(channel.getChannelRetryPolicy() == null)
   }
 
 }

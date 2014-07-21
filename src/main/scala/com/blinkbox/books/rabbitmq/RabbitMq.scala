@@ -42,6 +42,8 @@ object RabbitMq {
    *
    * This connection will be reliable, in that it will automatically reconnect and re-initialise after
    * a broker failure. This includes when first connecting to the broker.
+   * It will also retry any failed actions on created Channels, such as publishing.
+   * Note that retrying of such actions will cause API operations to block.
    *
    * @param config A configuration object that contains the settings needed for connecting
    * to RabbitMQ.
@@ -53,6 +55,30 @@ object RabbitMq {
       .withRecoveryPolicy(new RecoveryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
       .withRetryPolicy(new RetryPolicy()
+        .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
+
+    Connections.create(factory, lyraConfig)
+  }
+
+  /**
+   * Factory method for creating a recovered connection to a RabbitMQ broker.
+   *
+   * This connection will be reliable, in that it will automatically reconnect and re-initialise after
+   * a broker failure. This includes when first connecting to the broker.
+   * It will however NOT recover created Channels after failures, nor will it retry any actions on Channels.
+   * Instead it will return error on these operations directly to the caller.
+   *
+   * This avoids blocking on actions such as creating short-lived channels or publishing messages,
+   * which is important when performing such actions within Actors.
+   *
+   * @param config A configuration object that contains the settings needed for connecting
+   * to RabbitMQ.
+   */
+  def recoveredConnection(config: RabbitMqConfig): Connection = {
+    val factory = connectionFactory(config)
+    // Recover connections, but do no other error handling or retry/recovery.
+    val lyraConfig = new lyra.config.Config()
+      .withConnectionRecoveryPolicy(new RecoveryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
 
     Connections.create(factory, lyraConfig)
