@@ -10,12 +10,23 @@ The library defines the class `RabbitMqConfig` which has values for the various 
 
 ### Reliable broker connections
 
-The class RabbitMq has a method `reliableConnection`, which will return a connection to the RabbitMQ broker that will automatically reconnect after failures, and restore the state of any Channels created on this connection.
+The class `RabbitMq` has a method `reliableConnection`, which will return a connection to the RabbitMQ broker that will automatically reconnect after failures, and restore the state of any Channels created on this connection.
 
 This method takes the `RabbitMqConfig` object mentioned above as argument. Typically, applications will use this line of code to create a RabbitMq connection:
 
 ```scala
 val connection = RabbitMq.reliableConnection(RabbitMqConfig(config))
+```
+where `config` is the configuration returned by the standard `Configuration` trait.
+
+### Recovered broker connections
+
+The `RabbitMq` class also has a method `recoveredConnection`, which will return a connection to the RabbitMQ broker that will automatically reconnect after failures, but that will **not** retry operations such as creating channels or publishing messages, which would then become blocking. This makes this connection suitable for use in Actors that for example publish messages on short-lived channels.
+
+Typically, applications will create such RabbitMq connections as:
+
+```scala
+val connection = RabbitMq.recoveredConnection(RabbitMqConfig(config))
 ```
 where `config` is the configuration returned by the standard `Configuration` trait.
 
