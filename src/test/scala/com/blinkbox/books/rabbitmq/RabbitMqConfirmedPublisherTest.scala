@@ -245,26 +245,6 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
     (newActor, channel, confirmListener(channel))
   }
 
-  private def asyncActorForHeaders(exchangeName: Option[String], messageTimeout: FiniteDuration = 1000.millis): (ActorRef, Channel, ConfirmListener) = {
-    val channel = mockChannel()
-
-    // Create a waiter so we can wait for the (async) initialisation of the actor.
-    val actorInitWaiter = new Waiter()
-    doAnswer(() => { actorInitWaiter.dismiss() })
-      .when(channel).addConfirmListener(any[ConfirmListener])
-
-    // Create actor under test.
-    val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(channel, PublisherConfiguration(exchangeName, None, args,  messageTimeout, exchangeType))))
-
-    // Wait for it to be initialised.
-    within(1.seconds) {
-      actorInitWaiter.await()
-    }
-
-    (newActor, channel, confirmListener(channel))
-  }
-
   /** Create a mock RabbitMQ Channel that gives out valid sequence numbers.  */
   private def mockChannel() = {
     val channel = mock[Channel]

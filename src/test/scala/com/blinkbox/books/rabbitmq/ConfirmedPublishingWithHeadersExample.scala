@@ -1,20 +1,19 @@
 package com.blinkbox.books.rabbitmq
 
-import akka.actor.{ Actor, ActorRef, ActorLogging, ActorSystem, Props }
-import akka.actor.Status.{ Success, Failure }
-import com.blinkbox.books.messaging.{ Event, EventHeader }
-import com.blinkbox.books.rabbitmq.RabbitMqConsumer.QueueConfiguration
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
+
+import akka.actor.{ActorSystem, Props}
+import com.blinkbox.books.messaging.{Event, EventHeader}
+import com.blinkbox.books.rabbitmq.RabbitMqConsumer.QueueConfiguration
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration._
-import scala.util.Random
-import scala.xml.XML
 
 /**
  * A simple ad-hoc test/example using RabbitMQ code for confirmed publishing,
  * that runs against a local RabbitMQ.
+ * It uses message headers as routing arguments
  *
  * You can for example try to kill and restart RabbitMQ while it's running to see how that's handled.
  */
@@ -22,16 +21,11 @@ object ConfirmedPublishingWithHeadersExample extends App {
 
   println("Starting")
 
-//  val QueueName = "test.confirmedPublishing.queue.headers"
-//  val ExchangeName = "test.confirmedPublishing.exchange.headers"
-//  val exchangeType = "headers"
-//  val bindingArgs = Map("app_id" -> "test-producer-app-1")
-
   def newConnection() = RabbitMq.reliableConnection(RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 2.seconds, 10.seconds))
 
   // Set up an actor that publishes messages every few seconds.
   {
-    import RabbitMqConfirmedPublisher._
+    import com.blinkbox.books.rabbitmq.RabbitMqConfirmedPublisher._
 
     val connection = newConnection()
     val system = ActorSystem("producer-system")

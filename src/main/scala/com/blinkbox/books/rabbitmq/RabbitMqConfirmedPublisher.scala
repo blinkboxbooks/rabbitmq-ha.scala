@@ -2,17 +2,17 @@ package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import akka.actor.Status.{ Status, Success, Failure }
-import com.blinkbox.books.messaging.{ ContentType, Event }
+import com.blinkbox.books.messaging.{ Event }
 import com.rabbitmq.client._
 import com.rabbitmq.client.AMQP.BasicProperties
-import com.typesafe.config.{ConfigValue, Config}
+import com.typesafe.config.Config
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import scala.collection.JavaConverters._
 import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.util.Try
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
+import com.blinkbox.books.config.RichConfig
 
 import RabbitMqConfirmedPublisher._
 
@@ -46,7 +46,6 @@ import RabbitMqConfirmedPublisher._
  */
 class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguration)
   extends Actor with ActorLogging {
-
   import context.dispatcher
 
   private val exchangeName = config.exchange getOrElse ""
@@ -67,6 +66,9 @@ class RabbitMqConfirmedPublisher(channel: Channel, config: PublisherConfiguratio
     }
   })
 
+  if (config.exchange.isEmpty && config.routingKey.isEmpty) {
+    throw new IllegalArgumentException("Exchange name and RoutingKey both cannot be empty")
+  }
   // Either declare exchange or queue, depending on what we're publishing to.
   config.exchange match {
     case Some(name) =>
@@ -122,26 +124,21 @@ object RabbitMqConfirmedPublisher {
 
   /** Settings for publisher. */
   case class PublisherConfiguration(exchange: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]],
-                                    messageTimeout: FiniteDuration, exchangeType :String)
+                                    messageTimeout: FiniteDuration, exchangeType: String)
 
   object PublisherConfiguration {
     def apply(config: Config): PublisherConfiguration = {
-      val exchange = if (config.hasPath("exchangeName")) Some(config.getString("exchangeName")) else None
+      val exchange = config.getStringOption("exchangeName")
       val exchangeType = config.getString("exchangeType")
-      val routingKey = if (config.hasPath("routingKey")) Some(config.getString("routingKey")) else None
+      val routingKey = config.getStringOption("routingKey")
       val messageTimeout = config.getDuration("messageTimeout", TimeUnit.SECONDS).seconds
-      val args =  if (config.hasPath("queueBindingArguments"))  Some(config.getObjectList("queueBindingArguments")) else None
-      val bindingArgs  = if (args.nonEmpty)
-        (for {
-          item  <- args.get
-          entry <- item.entrySet()
-        } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
-
-      //check queueBindingArguments and routingKey mutual exclusion
+      val bindingArgs =  config.getConfigObjectOption("bindingArguments")
+      //check bindingArguments and routingKey mutual exclusion
       if (routingKey.nonEmpty && bindingArgs.nonEmpty)
-        throw new IllegalArgumentException("queueBindingArguments and routingKey must be mutually exclusive")
+        throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
 
-      PublisherConfiguration(exchange, routingKey, Option(bindingArgs), messageTimeout, exchangeType)
+      val mapArgs =bindingArgs.flatMap( f => Option(f.unwrapped().asScala.toMap))
+      PublisherConfiguration(exchange, routingKey, mapArgs, messageTimeout, exchangeType)
     }
   }
 
@@ -195,7 +192,7 @@ object RabbitMqConfirmedPublisher {
       
       val allHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
       builder.headers(allHeaders.asJava)
-      if (bindingArgs.isDefined) builder.headers(bindingArgs.get.asJava)
+      builder.headers(bindingArgs.getOrElse(Map()).asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
 

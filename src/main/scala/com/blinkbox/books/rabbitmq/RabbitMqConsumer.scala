@@ -1,18 +1,17 @@
 package com.blinkbox.books.rabbitmq
 
-import java.util.Map.Entry
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
 import akka.actor.Status.{ Success, Failure }
-import akka.util.Timeout
 import com.blinkbox.books.messaging._
 import com.rabbitmq.client._
-import com.typesafe.config.{ConfigValue, ConfigObject, Config}
-import java.nio.charset.{ Charset, StandardCharsets }
+import com.typesafe.config.{ Config}
+import java.nio.charset.{ Charset  }
 import org.joda.time.DateTime
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 import scala.util.Try
+import com.blinkbox.books.config.RichConfig
 
 import RabbitMqConsumer._
 
@@ -80,14 +79,14 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 
     // Only declare a topic exchange if at least one routing key is given.
     // This allows legacy services that use manually created fanout exchanges to work OK.
-    if (!queueConfig.routingKeys.isEmpty) {
+    if (queueConfig.routingKeys.nonEmpty) {
       channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
       log.debug(s"Declared topic exchange ${queueConfig.exchangeName}")
     }
 
     // Binding queues to the exchange using routing keys - or a single empty routing key
     // if the exchange isn't a topic exchange.
-    val boundRoutingKeys = if (!queueConfig.routingKeys.isEmpty) queueConfig.routingKeys else Seq()
+    val boundRoutingKeys = if (queueConfig.routingKeys.nonEmpty) queueConfig.routingKeys else Seq()
     for (routingKey <- boundRoutingKeys) {
       channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
       log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
@@ -142,17 +141,14 @@ object RabbitMqConsumer {
       val exchangeName = config.getString("exchangeName")
       val routingKeys = config.getStringList("routingKeys").asScala.toList
       val prefetchCount = config.getInt("prefetchCount")
-      val args =  if (config.hasPath("queueBindingArguments"))  Some(config.getObjectList("queueBindingArguments")) else None
-      val m  = if (args.nonEmpty)
-        (for {
-        item  <- args.get
-        entry <- item.entrySet()
-      } yield (entry.getKey, entry.getValue.unwrapped())).toMap else Map[String, AnyRef]()
+      val bindingArgs =  config.getConfigObjectOption("bindingArguments")
 
-      //check queueBindingArguments and routingKey mutual exclusion
-      if (routingKeys.nonEmpty && m.nonEmpty)
-        throw new IllegalArgumentException("queueBindingArguments and routingKey must be mutually exclusive")
-      QueueConfiguration(queueName, exchangeName, routingKeys, m,  prefetchCount)
+      val mapArgs =bindingArgs.flatMap( f => Option(f.unwrapped().asScala.toMap)) //mutable to immutable map
+
+      //check bindingArguments and routingKey mutual exclusion
+      if (routingKeys.nonEmpty && bindingArgs.nonEmpty)
+        throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
+      QueueConfiguration(queueName, exchangeName, routingKeys, mapArgs.getOrElse(Map()), prefetchCount)
     }
   }
 
