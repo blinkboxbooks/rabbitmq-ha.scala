@@ -3,8 +3,7 @@ package com.blinkbox.books.rabbitmq
 import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.testkit.{ EventFilter, ImplicitSender, TestKit }
 import akka.util.Timeout
-import com.blinkbox.books.messaging.ContentType
-import com.blinkbox.books.messaging.{ Event, EventHeader }
+import com.blinkbox.books.messaging.{ ContentType, Event, EventHeader }
 import com.rabbitmq.client.{ Channel, ConfirmListener, Connection }
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.ConfigFactory
@@ -17,8 +16,7 @@ import org.scalatest.FunSuiteLike
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.time.Span
-import org.scalatest.time.Seconds
+import org.scalatest.time.{ Seconds, Span }
 import scala.concurrent.duration._
 import RabbitMqConfirmedPublisherTest._
 
