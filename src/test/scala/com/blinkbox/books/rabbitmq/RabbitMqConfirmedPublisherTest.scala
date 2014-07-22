@@ -12,7 +12,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Matchers.{ eq => matcherEq }
 import org.mockito.Mockito._
-import org.scalatest.FunSuiteLike
+import org.scalatest.{ FunSuiteLike, OneInstancePerTest }
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
@@ -22,7 +22,7 @@ import RabbitMqConfirmedPublisherTest._
 
 @RunWith(classOf[JUnitRunner])
 class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", ConfigFactory.parseString(Config)))
-  with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions with AnswerSugar {
+  with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions with AnswerSugar with OneInstancePerTest {
 
   import RabbitMqConfirmedPublisher._
 
