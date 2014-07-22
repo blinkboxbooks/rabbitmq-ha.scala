@@ -23,7 +23,7 @@ object ConfirmedPublishingExample extends App {
   val QueueName = "test.confirmedPublishing.queue"
   val ExchangeName = "test.confirmedPublishing.exchange"
   val RoutingKey = "test.confirmedPublishing.routingKey"
-  val `type` = "topic"
+  val exchangeType = "topic"
 
   def newConnection() = RabbitMq.reliableConnection(RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 2.seconds, 10.seconds))
 
@@ -37,7 +37,7 @@ object ConfirmedPublishingExample extends App {
     implicit val executionContext = system.dispatcher
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection.createChannel(), PublisherConfiguration(Some(ExchangeName), Some(RoutingKey), None, 10.seconds, `type`))),
+      new RabbitMqConfirmedPublisher(connection.createChannel(), PublisherConfiguration(Some(ExchangeName), Some(RoutingKey), None, 10.seconds, exchangeType))),
       name = "publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 

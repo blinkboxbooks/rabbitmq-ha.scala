@@ -133,7 +133,7 @@ object RabbitMqConfirmedPublisher {
       val routingKey = config.getStringOption("routingKey")
       val messageTimeout = config.getDuration("messageTimeout", TimeUnit.SECONDS).seconds
       val bindingArgs =  config.getConfigObjectOption("bindingArguments")
-      //check bindingArguments and routingKey mutual exclusion
+      // check bindingArguments and routingKey mutual exclusion
       if (routingKey.nonEmpty && bindingArgs.nonEmpty)
         throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
 
