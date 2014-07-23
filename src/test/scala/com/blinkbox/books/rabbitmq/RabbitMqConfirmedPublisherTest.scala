@@ -27,12 +27,14 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
   import RabbitMqConfirmedPublisher._
 
   val ExchangeName = "test.exchange"
+  val HeadersExchangeName = "test.headers.exchange"
   val Topic = "test.topic"
+  var exchangeType = "topic"
   val TestMessageTimeout = 10.seconds
   implicit val TestActorTimeout = Timeout(10.seconds)
 
   test("Publish message to named exchange") {
-    val (actor, channel) = initActor(Some(ExchangeName))
+    val (actor, channel) = initActor(Some(ExchangeName), Some(Topic), None)
 
     sendEventAndWait(event("test event"), actor)
 
@@ -46,7 +48,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
   }
 
   test("Publish message to default exchange") {
-    val (actor, channel) = initActor(None)
+    val (actor, channel) = initActor(None, Some(Topic), None)
 
     sendEventAndWait(event("test event"), actor)
 
@@ -61,7 +63,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
   }
 
   test("Publish message with content type") {
-    val (actor, channel) = initActor(None)
+    val (actor, channel) = initActor(None, Some(Topic), None)
 
     sendEventAndWait(eventJson("json test event"), actor)
 
@@ -79,7 +81,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
 
   test("Message times out") {
     // Use a real, concurrent actor for this test case, with a very short timeout.
-    val (actor, channel) = initActor(None, 100.millis)
+    val (actor, channel) = initActor(None, Some(Topic), None, 100.millis)
 
     actor ! event("test")
 
@@ -92,10 +94,22 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
     expectNoMsg(1.second)
   }
 
+  test("Publish message to named headers exchange") {
+    val (actor, channel) = initActor(Some(HeadersExchangeName), None, Some(Map("app_id" ->"service-1")))
+    sendEventAndWait(event("test 1"), actor)
+
+    // Fake a response from the Channel.
+    confirmListener(channel).handleAck(0, false)
+
+    within(1000.millis) {
+      verify(channel).basicPublish(matcherEq(HeadersExchangeName), matcherEq(""), any[BasicProperties], any[Array[Byte]])
+    }
+  }
+
   private def event(tag: String): Event = Event.xml("<test/>", EventHeader(tag))
   private def eventJson(tag: String): Event = Event.json("{}", EventHeader(tag))
 
-  private def initActor(exchangeName: Option[String], messageTimeout: FiniteDuration = 1000.millis) = {
+  private def initActor(exchangeName: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]], messageTimeout: FiniteDuration = 1000.millis) = {
     val (connection, channel) = mockConnection()
 
     // Create a waiter so we can wait for the (async) initialisation of the actor.
@@ -105,7 +119,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
 
     // Create actor under test.
     val newActor = system.actorOf(
-      Props(new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(exchangeName, Topic, messageTimeout))))
+      Props(new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(exchangeName, routingKey, bindingArgs, messageTimeout, exchangeType))))
 
     // Wait for it to be initialised.
     within(1.seconds) {

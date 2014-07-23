@@ -6,6 +6,8 @@ import com.blinkbox.books.messaging.{ Event, EventHeader }
 import com.blinkbox.books.rabbitmq.RabbitMqConsumer.QueueConfiguration
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
+import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
 import scala.util.Random
 import scala.xml.XML
@@ -37,7 +39,7 @@ object ConfirmedPublishingExample extends App {
     implicit val executionContext = system.dispatcher
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(Some(ExchangeName), RoutingKey, 10.seconds))),
+      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(Some(ExchangeName), Some(RoutingKey), None, 10.seconds, exchangeType))),
       name = "publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 

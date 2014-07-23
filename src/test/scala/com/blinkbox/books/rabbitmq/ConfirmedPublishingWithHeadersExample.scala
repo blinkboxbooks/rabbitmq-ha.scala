@@ -31,11 +31,11 @@ object ConfirmedPublishingWithHeadersExample extends App {
     val system = ActorSystem("producer-system")
     val counter = new AtomicInteger()
     implicit val executionContext = system.dispatcher
-    val config = ConfigFactory.load("rabbitmq-consumer-test-headers.conf").getConfig("service.test.testQueue")
+    val config = ConfigFactory.load("rabbitmq-publisher-test-headers.conf").getConfig("service.test.testQueue")
     val queueConfig = QueueConfiguration(config)
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection.createChannel(), PublisherConfiguration(config))), name ="publisher")
+      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(config))), name ="publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 
     // Send a steady stream of numbers every few seconds.
@@ -53,7 +53,7 @@ object ConfirmedPublishingWithHeadersExample extends App {
     val system = ActorSystem("consumer-system")
 
     val output = system.actorOf(Props(new TestConsumer()), "test-consumer")
-    val config = ConfigFactory.load("rabbitmq-consumer-test-headers.conf").getConfig("service.test.testQueue")
+    val config = ConfigFactory.load("rabbitmq-publisher-test-headers.conf").getConfig("service.test.testQueue")
     val queueConfig = QueueConfiguration(config)
     val consumer = system.actorOf(Props(new RabbitMqConsumer (connection.createChannel(), queueConfig, "consumer-tag", output)), name = "rabbitmq-consumer")
     consumer ! RabbitMqConsumer.Init
