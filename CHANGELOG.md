@@ -1,5 +1,15 @@
 # Change log
 
+## 4.0.0 ([#13](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/13) 2014-07-17 13:56:42)
+
+CP-1584 Fix reliable sending of messages
+
+#### Breaking Changes
+ 
+ Changed publisher actors to use a RabbitMQ channel per message, to make confirmations work reliably. This was needed because publisher confirms can't be done reliably when sharing a single Channel across threads, due to the way the RabbitMQ Java API works (see the comments in the docs at https://www.rabbitmq.com/releases/rabbitmq-java-client/v3.2.2/rabbitmq-java-client-javadoc-3.2.2/com/rabbitmq/client/Channel.html).
+ 
+This is a breaking change as client code now has to pass in a `Connection` on which to create `Channel`s, instead of a single `Channel`.
+
 ## 3.0.3 ([#12](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/12) 2014-07-11 15:09:31)
 
 Changed default xml content type header to received message's content type 

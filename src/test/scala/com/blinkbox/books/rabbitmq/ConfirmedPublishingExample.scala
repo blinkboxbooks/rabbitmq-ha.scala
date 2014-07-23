@@ -37,7 +37,7 @@ object ConfirmedPublishingExample extends App {
     implicit val executionContext = system.dispatcher
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection.createChannel(), PublisherConfiguration(Some(ExchangeName), Some(RoutingKey), None, 10.seconds, exchangeType))),
+      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(Some(ExchangeName), RoutingKey, 10.seconds))),
       name = "publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 
