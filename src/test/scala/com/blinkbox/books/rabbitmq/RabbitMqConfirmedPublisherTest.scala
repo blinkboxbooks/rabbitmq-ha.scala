@@ -160,7 +160,7 @@ object RabbitMqConfirmedPublisherTest {
 
   // Enable actor's logging to be checked.
   val Config = """
-    akka.loggers = ["akka.testkit.TestEventListener"]
+    akka.loggers.0 = "akka.testkit.TestEventListener"
     akka.loglevel = DEBUG
                """
 

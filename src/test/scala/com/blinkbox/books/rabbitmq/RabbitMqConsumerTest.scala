@@ -30,7 +30,7 @@ import java.nio.charset.UnsupportedCharsetException
 object RabbitMqConsumerTest {
   // Enable actor's logging to be checked.
   val TestEventListener = """
-    akka.loggers = ["akka.testkit.TestEventListener"]
+    akka.loggers.0 = "akka.testkit.TestEventListener"
     """
 }
 
