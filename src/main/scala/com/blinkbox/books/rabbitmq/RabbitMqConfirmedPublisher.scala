@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.util.Try
-
+import com.blinkbox.books.config.RichConfig
 import RabbitMqConfirmedPublisher._
 
 /**
@@ -56,7 +56,7 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
       log.debug(s"Received request to publish event, id=${event.header.id}")
       val originator = sender
       val singleMessagePublisher = context.actorOf(
-        Props(new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.messageTimeout))
+        Props(new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.bindingArgs, config.messageTimeout))
           .withDispatcher("event-publisher-dispatcher"),
         name = s"msg-publisher-for-${event.header.id}")
       singleMessagePublisher ! event
@@ -64,17 +64,21 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
     case msg => log.error(s"Unexpected message received: $msg")
   }
 
+
   /** Ensure the required queues, exchanges and bindings are present. */
   private def initConnection() {
+    if (config.exchange.isEmpty && config.routingKey.isEmpty) {
+      throw new IllegalArgumentException("Exchange name and RoutingKey both cannot be empty")
+    }
     val channel = createChannel()
     try
       // Either declare exchange or queue, depending on what we're publishing to.
       config.exchange match {
         case Some(name) =>
-          channel.exchangeDeclare(name, "topic", true)
-          log.debug(s"Declared topic exchange $name, used as the exchange to publish to")
+          channel.exchangeDeclare(name, config.exchangeType, true)
+          log.debug(s"Declared ${config.exchangeType} exchange $name, used as the exchange to publish to")
         case None =>
-          channel.queueDeclare(config.routingKey, true, false, false, null)
+          channel.queueDeclare(config.routingKey.get, true, false, false, null)
           log.debug(s"Declared queue ${config.routingKey}, used as the queue to publish directly to")
       }
     finally channel.close()
@@ -103,13 +107,21 @@ object RabbitMqConfirmedPublisher {
    * a failure notification for a message if confirmation hasn't been received for this.
    *
    */
-  case class PublisherConfiguration(exchange: Option[String], routingKey: String, messageTimeout: FiniteDuration)
+  case class PublisherConfiguration(exchange: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]],
+                                    messageTimeout: FiniteDuration, exchangeType: String)
   object PublisherConfiguration {
     def apply(config: Config): PublisherConfiguration = {
-      val exchange = if (config.hasPath("exchangeName")) Some(config.getString("exchangeName")) else None
-      val routingKey = config.getString("routingKey")
+      val exchange = config.getStringOption("exchangeName")
+      val exchangeType = config.getString("exchangeType")
+      val routingKey = config.getStringOption("routingKey")
       val messageTimeout = config.getDuration("messageTimeout", TimeUnit.SECONDS).seconds
-      PublisherConfiguration(exchange, routingKey, messageTimeout)
+      val bindingArgs =  config.getConfigObjectOption("bindingArguments")
+      // check bindingArguments and routingKey mutual exclusion
+      if (routingKey.nonEmpty && bindingArgs.nonEmpty)
+        throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
+
+      val mapArgs =bindingArgs.flatMap( f => Option(f.unwrapped().asScala.toMap))
+      PublisherConfiguration(exchange, routingKey, mapArgs, messageTimeout, exchangeType)
     }
   }
 
@@ -126,7 +138,7 @@ object RabbitMqConfirmedPublisher {
    * use in an asynchronous, non-blocking way, sadly, especially when using publisher confirms.
    */
   private class SingleEventPublisher(channel: Channel, originator: ActorRef,
-    exchange: String, routingKey: String, timeout: FiniteDuration)
+                                     exchange: String, routingKey: Option[String], bindingArgs: Option[Map[String,AnyRef]], timeout: FiniteDuration)
     extends Actor with ActorLogging {
 
     import context.dispatcher
@@ -160,7 +172,7 @@ object RabbitMqConfirmedPublisher {
     private def publishMessage(event: Event) = blocking {
       // Note: Lyra can make the basicPublish() method blocking (e.g. when the broker connection is down),
       // so this needs to be inside the blocking{} block.
-      channel.basicPublish(exchange, routingKey, propertiesForEvent(event), event.body.content)
+      channel.basicPublish(exchange, routingKey.getOrElse(""), propertiesForEvent(event), event.body.content)
       log.debug(s"Published message with ID ${event.header.id} with routing key '$routingKey'")
     }
 
@@ -189,6 +201,7 @@ object RabbitMqConfirmedPublisher {
 
       val allHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
       builder.headers(allHeaders.asJava)
+      builder.headers(bindingArgs.getOrElse(Map()).asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
 

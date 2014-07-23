@@ -40,7 +40,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
 
   import RabbitMqConsumer._
 
-  val config = QueueConfiguration("TestQueue", "TestExchange", List("routing.key.1", "routing.key.2"), 10)
+  val config = QueueConfiguration("TestQueue", "TestExchange", List("routing.key.1", "routing.key.2"), Map[String,AnyRef](), 10)
   val consumerTag = "consumer-tag"
 
   val envelope = new Envelope(0, false, config.exchangeName, config.routingKeys(0))

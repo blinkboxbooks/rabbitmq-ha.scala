@@ -6,6 +6,8 @@ import com.blinkbox.books.messaging.{ Event, EventHeader }
 import com.blinkbox.books.rabbitmq.RabbitMqConsumer.QueueConfiguration
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
+import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
 import scala.util.Random
 import scala.xml.XML
@@ -23,6 +25,7 @@ object ConfirmedPublishingExample extends App {
   val QueueName = "test.confirmedPublishing.queue"
   val ExchangeName = "test.confirmedPublishing.exchange"
   val RoutingKey = "test.confirmedPublishing.routingKey"
+  val exchangeType = "topic"
 
   def newConnection() = RabbitMq.reliableConnection(RabbitMqConfig(new URI("amqp://guest:guest@localhost:5672"), 2.seconds, 10.seconds))
 
@@ -36,7 +39,7 @@ object ConfirmedPublishingExample extends App {
     implicit val executionContext = system.dispatcher
 
     val publisher = system.actorOf(Props(
-      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(Some(ExchangeName), RoutingKey, 10.seconds))),
+      new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(Some(ExchangeName), Some(RoutingKey), None, 10.seconds, exchangeType))),
       name = "publisher")
     val responsePrinter = system.actorOf(Props(new ResponsePrinter()), name = "response-printer")
 
@@ -55,7 +58,7 @@ object ConfirmedPublishingExample extends App {
     val system = ActorSystem("consumer-system")
 
     val output = system.actorOf(Props(new TestConsumer()), "test-consumer")
-    val queueConfig = QueueConfiguration("test-queue", ExchangeName, Seq(RoutingKey), 50)
+    val queueConfig = QueueConfiguration("test-queue", ExchangeName, Seq(RoutingKey), Map(), 50)
     val consumer = system.actorOf(Props(
       new RabbitMqConsumer(connection.createChannel(), queueConfig, "consumer-tag", output)), name = "rabbitmq-consumer")
     consumer ! RabbitMqConsumer.Init
