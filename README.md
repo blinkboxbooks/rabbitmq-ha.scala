@@ -31,6 +31,7 @@ Each instance of these is configured with a `QueueConfiguration` object, which c
 | exchangeName  | String | Name of exchange queue is bound to.   |
 | routingKeys   | List[String] | List of routing keys used to bind queues to exchange, one binding per routing key. If this consumer is binding to a fanout exchange, an empty list may be given, or a list with a single entry (the content of which doesn't matter). |
 | prefetchCount | Int | The maximum number of messages that can be in-process at once. |
+| bindingArguments | Map | key-value pairs used for headers binding |
 
 The consumer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.
 
@@ -59,5 +60,7 @@ Each instance of this actor is configured with a `PublisherConfiguration` object
 | exchangeName  | String | Name of exchange messages are published to. If a service wants to publish direct to a queue (not recommended practice) then this value can be ommitted, in which case the routingKey parameter identifies the name of the queue (this is using the RabbitMQ "Default Exchange" feature).  |
 | routingKey   | String | Routing key used to route messages at the exchange published to. This value is ignored for some exchanges, e.g. fanout exchanges, in which case an empty value may be given. |
 | prefetchCount | Int | The maximum number of messages that can be in-process at once. |
+| exchangeType  | String | The exchange type (topic, headers, etc). |
+| bindingArguments | Map | key-value pairs used as arguments when publishing a message|
 
 The producer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.
