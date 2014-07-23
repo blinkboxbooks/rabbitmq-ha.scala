@@ -118,7 +118,8 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
   }
 
   private def sendEventAndWait(e: Event, sourceActor: ActorRef) {
-    EventFilter.debug(pattern = s".*${e.header.id}.*", occurrences = 1, source = sourceActor.path.toString).intercept {
+    // Wait for message with the unique ID.
+    EventFilter.debug(pattern = s".*${e.header.id}.*", occurrences = 1).intercept {
       sourceActor ! e
     }
   }
