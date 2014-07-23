@@ -14,6 +14,7 @@ libraryDependencies ++= Seq(
   "com.rabbitmq"       % "amqp-client"  % "3.3.2",
   "net.jodah"          % "lyra"         % "0.4.1",
   "org.joda"           % "joda-convert" % "1.6",
+  "com.typesafe.akka" %% "akka-slf4j" % "2.3.3",
   "org.scalatest"     %% "scalatest"    % "2.2.0" % "test",
   "junit"              % "junit"        % "4.11" % "test",
   "org.mockito"        % "mockito-core" % "1.9.5" % "test"
