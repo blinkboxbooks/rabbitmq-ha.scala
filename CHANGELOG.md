@@ -1,5 +1,12 @@
 # Change log
 
+## 4.0.2 ([#19](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/19) 2014-07-23 11:39:54)
+
+CP-1567: Logging fix
+
+bugfix
+added akka-slf4j dependency
+
 ## 4.0.1 ([#18](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/18) 2014-07-23 11:31:21)
 
 CP-1567: Updated the doc
