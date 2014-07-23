@@ -1,5 +1,12 @@
 # Change log
 
+## 4.0.1 ([#18](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/18) 2014-07-23 11:31:21)
+
+CP-1567: Updated the doc
+
+improvement
+updated the doc
+
 ## 4.0.0 ([#13](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/13) 2014-07-17 13:56:42)
 
 CP-1584 Fix reliable sending of messages
