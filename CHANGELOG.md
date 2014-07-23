@@ -1,5 +1,12 @@
 # Change log
 
+## 4.0.3 ([#20](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/20) 2014-07-23 13:23:13)
+
+CP-1567: Fixed logging error
+
+patch
+fixed logging error
+
 ## 4.0.2 ([#19](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/19) 2014-07-23 11:39:54)
 
 CP-1567: Logging fix
