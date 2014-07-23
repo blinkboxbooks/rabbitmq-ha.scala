@@ -114,9 +114,6 @@ class RabbitMqConfirmedPublisherTest extends TestKit(ActorSystem("test-system", 
       actorInitWaiter.await()
     }
 
-    // Reset the mock channel.
-    reset(channel)
-
     (newActor, channel)
   }
 
@@ -150,7 +147,6 @@ object RabbitMqConfirmedPublisherTest {
   val Config = """
     akka.loggers : ["akka.testkit.TestEventListener"]
     akka.loglevel : DEBUG
-    akka.test.filter-leeway : 10 seconds
     """
 
 }
