@@ -3,8 +3,7 @@ package com.blinkbox.books.rabbitmq
 import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.testkit.{ EventFilter, ImplicitSender, TestKit }
 import akka.util.Timeout
-import com.blinkbox.books.messaging.ContentType
-import com.blinkbox.books.messaging.{ Event, EventHeader }
+import com.blinkbox.books.messaging.{ ContentType, Event, EventHeader }
 import com.rabbitmq.client.{ Channel, ConfirmListener, Connection }
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.ConfigFactory
@@ -13,10 +12,11 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Matchers.{ eq => matcherEq }
 import org.mockito.Mockito._
-import org.scalatest.FunSuiteLike
+import org.scalatest.{ FunSuiteLike, OneInstancePerTest }
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
+import org.scalatest.time.{ Seconds, Span }
 import scala.concurrent.duration._
 import RabbitMqConfirmedPublisherTest._
 
@@ -31,6 +31,8 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
   val Topic = "test.topic"
   var exchangeType = "topic"
   val TestMessageTimeout = 10.seconds
+  val TestTimeout = 3.seconds
+  implicit val defaultPatience = PatienceConfig(timeout = scaled(Span(5, Seconds)))
   implicit val TestActorTimeout = Timeout(10.seconds)
 
   test("Publish message to named exchange") {
@@ -41,7 +43,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       verify(channel).basicPublish(matcherEq(ExchangeName), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
     }
@@ -55,7 +57,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), any[BasicProperties], any[Array[Byte]])
@@ -70,7 +72,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
     // Fake a response from the Channel.
     confirmListener(channel).handleAck(0, false)
 
-    within(1000.millis) {
+    within(TestTimeout) {
       expectMsgType[Status.Success]
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
       val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
@@ -85,7 +87,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
 
     actor ! event("test")
 
-    val response = expectMsgType[Status.Failure](1.second)
+    val response = expectMsgType[Status.Failure](TestTimeout)
     assert(response.cause.isInstanceOf[PublishException])
 
     // ACKing after timeout should have no effect.
@@ -109,7 +111,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
   private def event(tag: String): Event = Event.xml("<test/>", EventHeader(tag))
   private def eventJson(tag: String): Event = Event.json("{}", EventHeader(tag))
 
-  private def initActor(exchangeName: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]], messageTimeout: FiniteDuration = 1000.millis) = {
+  private def initActor(exchangeName: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]], messageTimeout: FiniteDuration = TestMessageTimeout) = {
     val (connection, channel) = mockConnection()
 
     // Create a waiter so we can wait for the (async) initialisation of the actor.
@@ -122,18 +124,16 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
       Props(new RabbitMqConfirmedPublisher(connection, PublisherConfiguration(exchangeName, routingKey, bindingArgs, messageTimeout, exchangeType))))
 
     // Wait for it to be initialised.
-    within(1.seconds) {
+    within(TestTimeout) {
       actorInitWaiter.await()
     }
-
-    // Reset the mock channel.
-    reset(channel)
 
     (newActor, channel)
   }
 
   private def sendEventAndWait(e: Event, sourceActor: ActorRef) {
-    EventFilter.debug(pattern = s".*${e.header.id}.*", occurrences = 1, source = sourceActor.path.toString).intercept {
+    // Wait for message with the unique ID.
+    EventFilter.debug(pattern = s".*${e.header.id}.*", occurrences = 1).intercept {
       sourceActor ! e
     }
   }
@@ -163,5 +163,4 @@ object RabbitMqConfirmedPublisherTest {
     akka.loggers.0 = "akka.testkit.TestEventListener"
     akka.loglevel = DEBUG
                """
-
 }

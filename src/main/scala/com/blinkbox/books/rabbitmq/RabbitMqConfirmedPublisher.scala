@@ -53,7 +53,6 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
 
   override def receive = {
     case event: Event =>
-      log.debug(s"Received request to publish event, id=${event.header.id}")
       val originator = sender
       val singleMessagePublisher = context.actorOf(
         Props(new SingleEventPublisher(createChannel(), originator, exchangeName, config.routingKey, config.bindingArgs, config.messageTimeout))
