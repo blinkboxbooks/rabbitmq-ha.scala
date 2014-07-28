@@ -4,6 +4,7 @@ import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.testkit.{ EventFilter, ImplicitSender, TestKit }
 import akka.util.Timeout
 import com.blinkbox.books.messaging.{ ContentType, Event, EventHeader }
+import com.blinkbox.books.test.AnswerSugar
 import com.rabbitmq.client.{ Channel, ConfirmListener, Connection }
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.ConfigFactory
