@@ -1,5 +1,14 @@
 # Change log
 
+## 4.1.1 ([#21](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/21) 2014-07-28 09:29:55)
+
+Use common-scala-test library.
+
+### Improvements:
+
+- Use common-scala-test library for common test utility code.
+
+
 ## 4.0.3 ([#20](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/20) 2014-07-23 13:23:13)
 
 CP-1567: Fixed logging error
