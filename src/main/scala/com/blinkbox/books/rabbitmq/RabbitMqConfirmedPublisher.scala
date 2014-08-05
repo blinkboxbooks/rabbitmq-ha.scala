@@ -192,7 +192,7 @@ object RabbitMqConfirmedPublisher {
         .messageId(event.header.id)
         .timestamp(event.header.timestamp.toDate)
         .appId(event.header.originator)
-        .contentType(event.body.contentType.mediaType)
+        .contentType(event.body.contentType.mediaType.toString())
 
       // Optional properties.
       val userIdHeader = event.header.userId map { userId => (RabbitMqConsumer.UserIdHeader -> userId) }

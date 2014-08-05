@@ -201,7 +201,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     .timestamp(messageTimestamp)
     .appId(originator)
     .contentEncoding(UTF_8.name)
-    .contentType(ContentType.XmlContentType.mediaType)
+    .contentType(ContentType.XmlContentType.mediaType.toString())
 
   private def waitUntilStarted(actor: ActorRef) {
     actor ! Init
@@ -230,5 +230,4 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     doAnswer(() => { rejectWaiter.dismiss() }).when(channel).basicReject(anyLong, anyBoolean)
     (channel, actor, consumer, ackWaiter, rejectWaiter)
   }
-
 }
