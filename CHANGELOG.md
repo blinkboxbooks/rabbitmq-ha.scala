@@ -1,5 +1,13 @@
 # Change log
 
+## 4.1.2 ([#22](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/22) 2014-08-05 13:44:31)
+
+Upgraded common-messaging to version 0.6.0
+
+### Improvement
+
+-  Upgraded common-messaging library to version 0.6.0
+
 ## 4.1.1 ([#21](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/21) 2014-07-28 09:29:55)
 
 Use common-scala-test library.
