@@ -1,14 +1,16 @@
 package com.blinkbox.books.rabbitmq
 
 import akka.actor.{ ActorRef, ActorSystem, Props, Status }
-import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
+import akka.testkit.{ EventFilter, ImplicitSender, TestActorRef, TestKit, TestProbe }
 import akka.util.Timeout
 import com.blinkbox.books.messaging._
+import com.blinkbox.books.test.AnswerSugar
 import com.rabbitmq.client.{ ConfirmListener, MessageProperties, Envelope, Channel, Consumer }
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.{ Config, ConfigFactory }
 import java.io.IOException
 import java.nio.charset.StandardCharsets.UTF_8
+import java.nio.charset.UnsupportedCharsetException
 import java.util.Date
 import org.junit.runner.RunWith
 import org.mockito.{ Matchers, ArgumentCaptor }
@@ -23,9 +25,7 @@ import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import RabbitMqConsumerTest._
-import akka.testkit.EventFilter
 import scala.reflect.ClassTag
-import java.nio.charset.UnsupportedCharsetException
 
 object RabbitMqConsumerTest {
   // Enable actor's logging to be checked.
