@@ -3,7 +3,7 @@ package com.blinkbox.books.rabbitmq
 import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.testkit.{ EventFilter, ImplicitSender, TestKit }
 import akka.util.Timeout
-import com.blinkbox.books.messaging.{ ContentType, Event, EventHeader }
+import com.blinkbox.books.messaging._
 import com.blinkbox.books.test.AnswerSugar
 import com.rabbitmq.client.{ Channel, ConfirmListener, Connection }
 import com.rabbitmq.client.AMQP.BasicProperties
@@ -13,7 +13,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Matchers.{ eq => matcherEq }
 import org.mockito.Mockito._
-import org.scalatest.{ FunSuiteLike, OneInstancePerTest }
+import org.scalatest.FunSuiteLike
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.mock.MockitoSugar
@@ -78,7 +78,7 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
       val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture(), any[Array[Byte]])
-      assert(captor.getValue.getContentType === ContentType.JsonContentType.mediaType)
+      assert(captor.getValue.getContentType === MediaType("application/vnd.blinkbox.books.events.testevent.v1+json").toString())
     }
   }
 
@@ -109,8 +109,14 @@ with ImplicitSender with FunSuiteLike with MockitoSugar with AsyncAssertions wit
     }
   }
 
+  case class TestEvent(foo: String)
+
+  implicit object TestEvent extends JsonEventBody[TestEvent] {
+    val jsonMediaType = MediaType("application/vnd.blinkbox.books.events.testevent.v1+json")
+  }
+
   private def event(tag: String): Event = Event.xml("<test/>", EventHeader(tag))
-  private def eventJson(tag: String): Event = Event.json("{}", EventHeader(tag))
+  private def eventJson(tag: String): Event = Event.json(content = TestEvent("foo"), header = EventHeader(tag))
 
   private def initActor(exchangeName: Option[String], routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]], messageTimeout: FiniteDuration = TestMessageTimeout) = {
     val (connection, channel) = mockConnection()
