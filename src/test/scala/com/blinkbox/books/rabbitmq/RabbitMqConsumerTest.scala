@@ -4,7 +4,7 @@ import akka.actor.{ ActorRef, ActorSystem, Props, Status }
 import akka.testkit.{ EventFilter, ImplicitSender, TestActorRef, TestKit, TestProbe }
 import akka.util.Timeout
 import com.blinkbox.books.messaging._
-import com.blinkbox.books.test.AnswerSugar
+import com.blinkbox.books.test.MockitoSyrup
 import com.rabbitmq.client.{ ConfirmListener, MessageProperties, Envelope, Channel, Consumer }
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -21,7 +21,6 @@ import org.mockito.stubbing.Answer
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.{ FunSuiteLike, BeforeAndAfter }
 import org.scalatest.concurrent.AsyncAssertions
-import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import RabbitMqConsumerTest._
@@ -36,7 +35,7 @@ object RabbitMqConsumerTest {
 
 @RunWith(classOf[JUnitRunner])
 class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFactory.parseString(TestEventListener)))
-  with ImplicitSender with FunSuiteLike with BeforeAndAfter with MockitoSugar with AsyncAssertions with AnswerSugar {
+  with ImplicitSender with FunSuiteLike with BeforeAndAfter with MockitoSyrup with AsyncAssertions {
 
   import RabbitMqConsumer._
 
