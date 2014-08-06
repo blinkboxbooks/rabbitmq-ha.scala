@@ -1,5 +1,14 @@
 # Change log
 
+## 5.0.0 ([#23](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/23) 2014-08-06 16:18:43)
+
+Updated dependencies.
+
+### Breaking changes
+
+- Updated dependencies on underlying libraries, including breaking changes.
+
+
 ## 4.1.2 ([#22](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/22) 2014-08-05 13:44:31)
 
 Upgraded common-messaging to version 0.6.0
