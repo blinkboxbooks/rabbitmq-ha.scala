@@ -42,6 +42,7 @@ Each instance of these is configured with a `QueueConfiguration` object, which c
 | exchangeName  | String | Name of exchange queue is bound to.   |
 | routingKeys   | List[String] | List of routing keys used to bind queues to exchange, one binding per routing key. If this consumer is binding to a fanout exchange, an empty list may be given, or a list with a single entry (the content of which doesn't matter). |
 | prefetchCount | Int | The maximum number of messages that can be in-process at once. |
+| exchangeType  | String | The exchange type (topic, headers, etc). |
 | bindingArguments | Map | key-value pairs used for headers binding |
 
 The consumer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.
