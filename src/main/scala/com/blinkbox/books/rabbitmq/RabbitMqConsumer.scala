@@ -81,7 +81,9 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 
     // Bind queue to the exchange.
     queueConfig.exchangeType match {
-      case "topic" | "fanout" =>
+      case "fanout" =>
+        channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "")
+      case "topic" =>
         for (routingKey <- queueConfig.routingKeys) {
           channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
           log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
