@@ -1,12 +1,11 @@
 package com.blinkbox.books.rabbitmq
 
-
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
 import akka.actor.Status.{ Success, Failure }
 import com.blinkbox.books.messaging._
 import com.rabbitmq.client._
-import com.typesafe.config.{ Config}
-import java.nio.charset.{ Charset  }
+import com.typesafe.config.{ Config }
+import java.nio.charset.{ Charset }
 import org.joda.time.DateTime
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
@@ -77,23 +76,19 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     channel.queueDeclare(queueConfig.queueName, true, false, false, null)
     log.debug(s"Declared queue ${queueConfig.queueName}")
 
-    // Only declare a topic exchange if at least one routing key is given.
-    // This allows legacy services that use manually created fanout exchanges to work OK.
-    if (queueConfig.routingKeys.nonEmpty) {
-      channel.exchangeDeclare(queueConfig.exchangeName, "topic", true)
-      log.debug(s"Declared topic exchange ${queueConfig.exchangeName}")
-    }
+    channel.exchangeDeclare(queueConfig.exchangeName, queueConfig.exchangeType, true)
+    log.debug(s"Declared durable ${queueConfig.exchangeType} exchange '${queueConfig.exchangeName}'")
 
-    // Binding queues to the exchange using routing keys - or a single empty routing key
-    // if the exchange isn't a topic exchange.
-    val boundRoutingKeys = if (queueConfig.routingKeys.nonEmpty) queueConfig.routingKeys else Seq()
-    for (routingKey <- boundRoutingKeys) {
-      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
-      log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
-    }
-
-    if (queueConfig.headerArgs.nonEmpty) {
-      channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", queueConfig.headerArgs)
+    // Bind queue to the exchange.
+    queueConfig.exchangeType match {
+      case "topic" | "fanout" =>
+        for (routingKey <- queueConfig.routingKeys) {
+          channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
+          log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
+        }
+      case "headers" | "match" =>
+        channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", queueConfig.headerArgs.asJava)
+        log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${queueConfig.headerArgs}")
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
@@ -133,22 +128,38 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 object RabbitMqConsumer {
 
   case object Init
-  case class QueueConfiguration(queueName: String, exchangeName: String, routingKeys: Seq[String], headerArgs : Map[String, AnyRef], prefetchCount: Int)
+  case class QueueConfiguration(queueName: String, exchangeName: String, exchangeType: String,
+    routingKeys: Seq[String], headerArgs: Map[String, AnyRef], prefetchCount: Int) {
+
+    if (!Set("fanout", "topic", "headers", "match").contains(exchangeType))
+      throw new IllegalArgumentException(s"Illegal exchange type '$exchangeType'")
+
+    // Check bindingArguments and routingKey mutual exclusion.
+    if (routingKeys.nonEmpty && headerArgs.nonEmpty)
+      throw new IllegalArgumentException("bindingArguments and routingKey are mutually exclusive")
+
+    // Check that binding arguments are specified if we use a header exchange.
+    if ((exchangeType == "headers" || exchangeType == "match") && headerArgs.isEmpty)
+      throw new IllegalArgumentException("Must specify binding arguments for header exchange")
+
+    if (exchangeType == "topic" && routingKeys.isEmpty) {
+      throw new IllegalArgumentException("Must provide at least one routing key for topic exchange")
+    }
+
+  }
 
   object QueueConfiguration {
     def apply(config: Config): QueueConfiguration = {
       val queueName = config.getString("queueName")
       val exchangeName = config.getString("exchangeName")
-      val routingKeys = config.getStringList("routingKeys").asScala.toList
+      val exchangeType = config.getString("exchangeType")
+      val routingKeys = if (config.hasPath("routingKeys")) config.getStringList("routingKeys").asScala.toList else List()
       val prefetchCount = config.getInt("prefetchCount")
-      val bindingArgs =  config.getConfigObjectOption("bindingArguments")
+      val bindingArgs = config.getConfigObjectOption("bindingArguments")
 
-      val mapArgs =bindingArgs.flatMap( f => Option(f.unwrapped().asScala.toMap)) //mutable to immutable map
+      val mapArgs = bindingArgs.flatMap(f => Option(f.unwrapped.asScala.toMap)) // mutable to immutable map
 
-      //check bindingArguments and routingKey mutual exclusion
-      if (routingKeys.nonEmpty && bindingArgs.nonEmpty)
-        throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
-      QueueConfiguration(queueName, exchangeName, routingKeys, mapArgs.getOrElse(Map()), prefetchCount)
+      QueueConfiguration(queueName, exchangeName, exchangeType, routingKeys, mapArgs.getOrElse(Map()), prefetchCount)
     }
   }
 
