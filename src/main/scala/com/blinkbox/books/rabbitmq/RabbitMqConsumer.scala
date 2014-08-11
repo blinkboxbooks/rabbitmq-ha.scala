@@ -83,10 +83,11 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     queueConfig.exchangeType match {
       case "fanout" =>
         channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "")
+        log.debug(s"Bound queue ${queueConfig.queueName} to fanout exchange ${queueConfig.exchangeName}")
       case "topic" =>
         for (routingKey <- queueConfig.routingKeys) {
           channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, routingKey)
-          log.debug(s"Bound queue ${queueConfig.queueName} to exchange ${queueConfig.exchangeName}, with routing key $routingKey")
+          log.debug(s"Bound queue ${queueConfig.queueName} to topic exchange ${queueConfig.exchangeName}, with routing key $routingKey")
         }
       case "headers" | "match" =>
         channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", queueConfig.headerArgs.asJava)
