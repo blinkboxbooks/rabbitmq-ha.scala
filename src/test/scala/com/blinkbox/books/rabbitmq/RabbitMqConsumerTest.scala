@@ -119,6 +119,22 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     verify(channel, never).basicReject(anyLong, anyBoolean)
   }
   
+  test("Consumer fails to initialise") {
+    val channel = mock[Channel]
+    val ex = new RuntimeException("Test exception in initialistion")
+    doThrow(ex).when(channel).queueDeclare(anyString, anyBoolean, anyBoolean, anyBoolean, matcherEq(null))
+
+    // Create actor under test.
+    val actor = system.actorOf(Props(new RabbitMqConsumer(channel, headerExchangeConfig, consumerTag, self)))
+
+    actor ! Init
+    within(900.millis) {
+      // Should respond with failure to client.
+      expectMsgType[Status.Failure]
+    }
+    
+  }
+  
   test("Consume JSON message") {
     val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor(headerExchangeConfig)
 

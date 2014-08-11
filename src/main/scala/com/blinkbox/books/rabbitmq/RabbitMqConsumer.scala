@@ -37,9 +37,16 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
 
   def initialising: Receive = {
     case Init =>
-      init()
-      context.become(initialised)
-      sender ! Status.Success("Initialised")
+      Try(init()) match {
+        case scala.util.Failure(e) =>
+          log.error(e, "Failed to initialise")
+          sender ! Status.Failure(e)
+        case _ =>
+          context.become(initialised)
+          log.info("Initialised")
+          sender ! Status.Success("Initialised")
+      }
+
     case msg => log.error(s"Unexpected message in uninitialised consumer: $msg")
   }
 
