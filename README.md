@@ -1,4 +1,4 @@
-# Rabbit-MQ HA Library [![Build Status](http://teamcity01.mobcastdev.local:8111/app/rest/builds/buildType:%28id:Hermes_RabbitMQ_HA_BuildPublish%29/statusIcon)](http://teamcity01.mobcastdev.local:8111/viewType.html?buildTypeId=Hermes_RabbitMQ_HA_BuildPublish&guest=1)
+# Rabbit-MQ HA Library [![Build Status](http://grisham:8111/app/rest/builds/buildType:%28id:Books_Platform_Hermes_RabbitmqHa_BuildTestPublish%29/statusIcon)](http://grisham:8111/viewType.html?buildTypeId=Books_Platform_Hermes_RabbitmqHa_BuildTestPublish&guest=1)
 
 This library contains various helpers classes for interacting with RabbitMQ in a standard, reliable way.
 
@@ -40,10 +40,9 @@ Each instance of these is configured with a `QueueConfiguration` object, which c
 | ------ | ------- | ------- |
 | queueName     | String | Name of queue.     |
 | exchangeName  | String | Name of exchange queue is bound to.   |
-| routingKeys   | List[String] | List of routing keys used to bind queues to exchange, one binding per routing key. If this consumer is binding to a fanout exchange, an empty list may be given, or a list with a single entry (the content of which doesn't matter). |
+| routingKeys   | List[String] | Optional list of routing keys used to bind queues to exchange, one binding per routing key. Ignored for fanout and header exchanges. |
+| bindingArguments | Map | Optional value with key-value pairs used for headers binding |
 | prefetchCount | Int | The maximum number of messages that can be in-process at once. |
-| exchangeType  | String | The exchange type (topic, headers, etc). |
-| bindingArguments | Map | key-value pairs used for headers binding |
 
 The consumer will declare exchanges, queues and bindings as needed, so that no manual setup is needed for RabbitMQ.
 

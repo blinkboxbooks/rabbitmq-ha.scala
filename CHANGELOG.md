@@ -1,5 +1,14 @@
 # Change log
 
+## 6.0.0 ([#25](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/25) 2014-08-11 12:44:27)
+
+Fixed support for header exchanges in RabbitMQ consumer.
+
+### Breaking changes
+
+- Added `exchangeType` argument to `QueueConfiguration` class used to configure RabbitMQ consumers. The code will no longer try to second-guess the type of exchange used, and will always declare the exchange. Header, topic and fanout exchanges are all supported.
+
+
 ## 5.0.0 ([#23](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/23) 2014-08-06 16:18:43)
 
 Updated dependencies.
