@@ -1,5 +1,12 @@
 # Change log
 
+## 6.0.1 ([#26](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/26) 2014-08-14 08:45:26)
+
+updated README doc.
+
+improvement
+
+
 ## 6.0.0 ([#25](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/25) 2014-08-11 12:44:27)
 
 Fixed support for header exchanges in RabbitMQ consumer.
