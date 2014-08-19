@@ -17,6 +17,7 @@ import org.scalatest.FunSuiteLike
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.time.{ Seconds, Span }
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import RabbitMqConfirmedPublisherTest._
 
@@ -74,10 +75,36 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
 
     within(TestTimeout) {
       expectMsgType[Status.Success]
+      val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
+
       // Should publish on the RabbitMQ "default exchange", whose name is the empty string.
+      verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture(), any[Array[Byte]])
+
+      // Should set content type as both property and header of message.
+      val expectedContentType = MediaType("application/vnd.blinkbox.books.events.testevent.v1+json").toString
+      assert(captor.getValue.getContentType == expectedContentType)
+      assert(captor.getValue.getHeaders().get("content-type") == expectedContentType)
+    }
+  }
+
+  test("Publish message with fixed header arguments") {
+    val bindingArgs: Map[String, AnyRef] = Map("foo" -> "fourty-two", "bar" -> "xyz")
+    val (actor, channel) = initActor(None, Some(Topic), Some(bindingArgs))
+
+    sendEventAndWait(eventJson("json test event"), actor)
+
+    // Fake a response from the Channel.
+    confirmListener(channel).handleAck(0, false)
+
+    within(TestTimeout) {
+      expectMsgType[Status.Success]
       val captor = ArgumentCaptor.forClass(classOf[BasicProperties])
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture(), any[Array[Byte]])
-      assert(captor.getValue.getContentType === MediaType("application/vnd.blinkbox.books.events.testevent.v1+json").toString())
+
+      // Should have stamped binding arguments on the outgoing message.
+      val msgHeaders = captor.getValue().getHeaders().asScala
+      val interestingHeaders = msgHeaders.filterKeys(key => bindingArgs.keys.toSet.contains(key))
+      assert(interestingHeaders == bindingArgs)
     }
   }
 

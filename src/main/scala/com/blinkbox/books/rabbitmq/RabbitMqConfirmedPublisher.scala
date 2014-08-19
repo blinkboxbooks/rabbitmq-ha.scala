@@ -192,15 +192,19 @@ object RabbitMqConfirmedPublisher {
         .messageId(event.header.id)
         .timestamp(event.header.timestamp.toDate)
         .appId(event.header.originator)
-        .contentType(event.body.contentType.mediaType.toString())
+        .contentType(event.body.contentType.mediaType.toString)
 
       // Optional properties.
       val userIdHeader = event.header.userId map { userId => (RabbitMqConsumer.UserIdHeader -> userId) }
       val transactionIdHeader = event.header.transactionId.map { transactionId => (RabbitMqConsumer.TransactionIdHeader -> transactionId) }
 
-      val allHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
+      val fixedHeaders = bindingArgs.getOrElse(Map())
+      val optionalHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
+
+      // Set content-type as a header as well as the property above, so that header exchanges can route on it.
+      val allHeaders = fixedHeaders ++ optionalHeaders + ("content-type" -> event.body.contentType.mediaType.toString)
+      
       builder.headers(allHeaders.asJava)
-      builder.headers(bindingArgs.getOrElse(Map()).asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }
 
