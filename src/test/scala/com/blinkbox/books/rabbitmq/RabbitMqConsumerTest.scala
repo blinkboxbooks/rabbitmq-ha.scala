@@ -179,7 +179,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
       val message = receiveOne(500.millis)
       val event = message.asInstanceOf[Event]
 
-      assert(event.header.id == "unknown"
+      assert(event.header.id.length == 36 // Should be a GUID.
         && event.body.contentType == ContentType.XmlContentType
         && event.body.asString == messageContent
         && event.header.originator == "unknown"
