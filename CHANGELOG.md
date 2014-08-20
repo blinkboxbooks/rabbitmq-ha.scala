@@ -1,5 +1,16 @@
 # Change log
 
+## 6.0.2 ([#27](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/27) 2014-08-19 17:10:24)
+
+Fixed handling of messages routed by content-type.
+
+### Improvements
+
+- Set `content-type` header on outgoing messages, as well as setting it as a property.
+- Fix bug in handling pre-defined header values for published messages.
+- Ensure incoming messages where the message-id isn't set get assigned a uniquely generated one, to avoid bugs in downstream code that assumes message IDs are unique.
+
+
 ## 6.0.1 ([#26](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/26) 2014-08-14 08:45:26)
 
 updated README doc.
