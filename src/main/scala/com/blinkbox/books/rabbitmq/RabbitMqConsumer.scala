@@ -108,9 +108,10 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
   private def toEvent(msg: RabbitMqMessage): Try[Event] = Try {
     val timestamp = new DateTime(Option(msg.properties.getTimestamp).getOrElse(DateTime.now)) // To cope with legacy messages.
     val mediaType = Option(msg.properties.getContentType).map(MediaType(_)).getOrElse(ContentType.XmlContentType.mediaType)
+
     val encoding = Option(msg.properties.getContentEncoding)
       .map(Charset.forName)
-    val messageId = Option(msg.properties.getMessageId).getOrElse("unknown") // To cope with legacy messages.
+    val messageId = Option(msg.properties.getMessageId).getOrElse(EventHeader.generateId) // To cope with legacy messages.
     // TBD: val flowId = Option(msg.properties.getCorrelationId())
 
     val headers = Option(msg.properties.getHeaders).map(_.asScala)
