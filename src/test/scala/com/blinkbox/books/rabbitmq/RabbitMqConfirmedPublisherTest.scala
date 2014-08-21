@@ -1,7 +1,7 @@
 package com.blinkbox.books.rabbitmq
 
-import akka.actor.{ ActorRef, ActorSystem, Props, Status }
-import akka.testkit.{ EventFilter, ImplicitSender, TestKit }
+import akka.actor.{ ActorRef, ActorSystem, DeadLetter, Props, Status }
+import akka.testkit.{ EventFilter, ImplicitSender, TestKit, TestProbe }
 import akka.util.Timeout
 import com.blinkbox.books.messaging._
 import com.blinkbox.books.test.MockitoSyrup
@@ -121,6 +121,24 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
     confirmListener(channel).handleAck(1, false)
 
     expectNoMsg(1.second)
+  }
+
+  test("Timeout message gets cancelled on processing message response") {
+    // Pick up dead letter events.
+    val deadLetterProbe = TestProbe()
+    system.eventStream.subscribe(deadLetterProbe.ref, classOf[DeadLetter])
+
+    // Use a real, concurrent actor for this test case, with a timeout that's
+    // long enough to not trigger before we fake the response, 
+    // but short enough to not make the test annoyingly slow to run.
+    val timeout = 1000.millis
+    val (actor, channel) = initActor(Some(ExchangeName), Some(Topic), None, timeout)
+
+    // Trigger an event that's immediately acked.
+    sendEventAndWait(event("test event"), actor)
+    confirmListener(channel).handleAck(0, false)
+
+    deadLetterProbe.expectNoMsg(timeout * 2)
   }
 
   test("Publish message to named headers exchange") {
