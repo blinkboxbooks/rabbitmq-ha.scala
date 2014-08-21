@@ -14,6 +14,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import com.blinkbox.books.config.RichConfig
 import RabbitMqConfirmedPublisher._
+import akka.actor.Cancellable
 
 /**
  * This actor class will publish events to a RabbitMQ topic exchange, publishing them as persistent
@@ -119,7 +120,7 @@ object RabbitMqConfirmedPublisher {
       if (routingKey.nonEmpty && bindingArgs.nonEmpty)
         throw new IllegalArgumentException("bindingArguments and routingKey must be mutually exclusive")
 
-      val mapArgs =bindingArgs.flatMap( f => Option(f.unwrapped().asScala.toMap))
+      val mapArgs = bindingArgs.flatMap(f => Option(f.unwrapped().asScala.toMap))
       PublisherConfiguration(exchange, routingKey, mapArgs, messageTimeout, exchangeType)
     }
   }
@@ -137,31 +138,32 @@ object RabbitMqConfirmedPublisher {
    * use in an asynchronous, non-blocking way, sadly, especially when using publisher confirms.
    */
   private class SingleEventPublisher(channel: Channel, originator: ActorRef,
-                                     exchange: String, routingKey: Option[String], bindingArgs: Option[Map[String,AnyRef]], timeout: FiniteDuration)
+    exchange: String, routingKey: Option[String], bindingArgs: Option[Map[String, AnyRef]], timeout: FiniteDuration)
     extends Actor with ActorLogging {
 
-    import context.dispatcher
+    import context._
 
     // Register callback for confirmations.
     channel.addConfirmListener(new ConfirmListener {
-      override def handleAck(seqNo: Long, multiple: Boolean) {
-        self ! Ack(seqNo, multiple)
-      }
-      override def handleNack(seqNo: Long, multiple: Boolean) {
-        self ! Nack(seqNo, multiple)
-      }
+      override def handleAck(seqNo: Long, multiple: Boolean) = self ! Ack(seqNo, multiple)
+      override def handleNack(seqNo: Long, multiple: Boolean) = self ! Nack(seqNo, multiple)
     })
 
     def receive = {
       case event: Event =>
-        context.system.scheduler.scheduleOnce(timeout, self, TimedOut)
+        val cancellable = context.system.scheduler.scheduleOnce(timeout, self, TimedOut)
         Try(publishMessage(event)) match {
-          case util.Failure(e) => complete(publishFailure(e))
+          case util.Failure(e) => complete(publishFailure(e), cancellable)
           case util.Success(_) => // OK
         }
-      case Ack(seqNo, multiple) => complete(Success())
-      case Nack(seqNo, multiple) => complete(nackFailure)
-      case TimedOut => complete(timeoutFailure(timeout))
+        become(waitingForResponse(cancellable))
+      case msg => log.error(s"Unexpected message: $msg")
+    }
+
+    private def waitingForResponse(cancellable: Cancellable): Receive = {
+      case Ack(seqNo, multiple) => complete(Success(), cancellable)
+      case Nack(seqNo, multiple) => complete(nackFailure, cancellable)
+      case TimedOut => complete(timeoutFailure(timeout), cancellable)
       case msg => log.error(s"Unexpected message: $msg")
     }
 
@@ -175,9 +177,10 @@ object RabbitMqConfirmedPublisher {
       log.debug(s"Published message with ID ${event.header.id} with routing key '$routingKey'")
     }
 
-    private def complete(response: Status) {
+    private def complete(response: Status, cancellable: Cancellable) {
       originator ! response
       context.stop(self)
+      cancellable.cancel
     }
 
     private def publishFailure(e: Throwable) = Failure(PublishException(s"Failed to publish message", e))
