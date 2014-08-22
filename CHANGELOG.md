@@ -1,5 +1,14 @@
 # Change log
 
+## 6.0.3 ([#28](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/28) 2014-08-21 14:14:16)
+
+Cancel scheduled timeouts
+
+### Improvements
+
+- Cancel scheduled timeouts, to avoid log warnings about dead letter messages.
+
+
 ## 6.0.2 ([#27](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/27) 2014-08-19 17:10:24)
 
 Fixed handling of messages routed by content-type.
