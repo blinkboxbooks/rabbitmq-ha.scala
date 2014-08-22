@@ -151,19 +151,19 @@ object RabbitMqConfirmedPublisher {
 
     def receive = {
       case event: Event =>
-        val cancellable = context.system.scheduler.scheduleOnce(timeout, self, TimedOut)
+        implicit val cancellable = context.system.scheduler.scheduleOnce(timeout, self, TimedOut)
         Try(publishMessage(event)) match {
-          case util.Failure(e) => complete(publishFailure(e), cancellable)
+          case util.Failure(e) => complete(publishFailure(e))
           case util.Success(_) => // OK
         }
-        become(waitingForResponse(cancellable))
+        become(waitingForResponse)
       case msg => log.error(s"Unexpected message: $msg")
     }
 
-    private def waitingForResponse(cancellable: Cancellable): Receive = {
-      case Ack(seqNo, multiple) => complete(Success(), cancellable)
-      case Nack(seqNo, multiple) => complete(nackFailure, cancellable)
-      case TimedOut => complete(timeoutFailure(timeout), cancellable)
+    private def waitingForResponse(implicit cancellable: Cancellable): Receive = {
+      case Ack(seqNo, multiple) => complete(Success())
+      case Nack(seqNo, multiple) => complete(nackFailure)
+      case TimedOut => complete(timeoutFailure(timeout))
       case msg => log.error(s"Unexpected message: $msg")
     }
 
@@ -177,7 +177,7 @@ object RabbitMqConfirmedPublisher {
       log.debug(s"Published message with ID ${event.header.id} with routing key '$routingKey'")
     }
 
-    private def complete(response: Status, cancellable: Cancellable) {
+    private def complete(response: Status)(implicit cancellable: Cancellable) {
       originator ! response
       context.stop(self)
       cancellable.cancel
