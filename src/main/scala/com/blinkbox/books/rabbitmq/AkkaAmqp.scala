@@ -1,13 +1,14 @@
 package com.blinkbox.books.rabbitmq
 
-import com.rabbitmq.client._
-import com.blinkbox.books.rabbitmq.RabbitMqReliablePublisher._
-import akka.actor.{ActorLogging, ActorRef, Actor}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.pattern.ask
 import akka.util.Timeout
-import scala.util.{ Try, Success, Failure }
+import com.blinkbox.books.rabbitmq.RabbitMqReliablePublisher._
+import com.rabbitmq.client._
+
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 /**
  * Data of an AMQP message.

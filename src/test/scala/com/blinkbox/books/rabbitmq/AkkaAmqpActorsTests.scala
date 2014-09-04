@@ -1,18 +1,20 @@
 package com.blinkbox.books.rabbitmq
 
-import akka.testkit.{TestActorRef, TestKit}
-import akka.actor.ActorSystem
-import akka.util.Timeout
-import com.rabbitmq.client.{ConfirmListener, MessageProperties, Envelope, Channel}
-import com.rabbitmq.client.AMQP.BasicProperties
 import java.io.IOException
-import org.scalatest.junit.JUnitRunner
+
+import akka.actor.ActorSystem
+import akka.testkit.{TestActorRef, TestKit}
+import akka.util.Timeout
+import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.{Channel, ConfirmListener, Envelope, MessageProperties}
 import org.junit.runner.RunWith
-import org.scalatest.{FunSuiteLike, BeforeAndAfter}
 import org.mockito.Mockito._
-import org.mockito.{Matchers, ArgumentCaptor}
-import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{ArgumentCaptor, Matchers}
+import org.scalatest.junit.JUnitRunner
+import org.scalatest.{BeforeAndAfter, FunSuiteLike}
+
 import scala.concurrent.duration._
 import scala.language.postfixOps
 

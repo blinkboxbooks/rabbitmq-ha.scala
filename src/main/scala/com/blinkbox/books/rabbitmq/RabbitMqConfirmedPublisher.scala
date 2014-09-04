@@ -161,7 +161,7 @@ object RabbitMqConfirmedPublisher {
     }
 
     private def waitingForResponse(implicit cancellable: Cancellable): Receive = {
-      case Ack(seqNo, multiple) => complete(Success())
+      case Ack(seqNo, multiple) => complete(Success(()))
       case Nack(seqNo, multiple) => complete(nackFailure)
       case TimedOut => complete(timeoutFailure(timeout))
       case msg => log.error(s"Unexpected message: $msg")
