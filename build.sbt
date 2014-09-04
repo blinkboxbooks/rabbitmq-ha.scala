@@ -4,7 +4,7 @@ version := scala.util.Try(scala.io.Source.fromFile("VERSION").mkString.trim).get
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8", "-target:jvm-1.7")
 
-organization := "com.blinkboxbooks.hermes"
+organization := "com.blinkbox.books.hermes"
 
 crossScalaVersions := Seq("2.10.4", "2.11.2")
 
