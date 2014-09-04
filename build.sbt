@@ -1,34 +1,22 @@
 name := "rabbitmq-ha"
 
-version := scala.io.Source.fromFile("VERSION").mkString.trim
+version := scala.util.Try(scala.io.Source.fromFile("VERSION").mkString.trim).getOrElse("0.0.0")
+
+scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8", "-target:jvm-1.7")
 
 organization := "com.blinkboxbooks.hermes"
 
-scalaVersion := "2.10.3"
+crossScalaVersions := Seq("2.10.4", "2.11.2")
 
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor"   % "2.2.3",
-  "com.typesafe.akka" %% "akka-testkit" % "2.2.3",
-  "com.rabbitmq"       % "amqp-client"  % "3.2.4",
-  "net.jodah"          % "lyra"         % "0.4.0",
-  "org.scalatest"     %% "scalatest"    % "1.9.1" % "test",
-  "junit"              % "junit"        % "4.11" % "test",
-  "org.mockito"        % "mockito-core" % "1.9.5" % "test"
-)
-
-scalacOptions ++= Seq("-feature", "-deprecation")
-
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
-
-resolvers += "Akka Repo" at "http://repo.akka.io/releases"
-
-parallelExecution := false
-
-// Pick up login credentials for Nexus from user's directory.
-credentials += Credentials(Path.userHome / ".sbt" / ".nexus")
-
-publishTo := {
-  val nexus = "http://nexus.mobcast.co.uk/"
-  Some("Sonatype Nexus Repository Manager" at nexus + "nexus/content/repositories/releases")
+libraryDependencies ++= {
+  val akkaV = "2.3.5"
+  Seq(
+    "com.typesafe.akka"   %% "akka-actor"         % akkaV,
+    "com.typesafe.akka"   %% "akka-testkit"       % akkaV,
+    "com.rabbitmq"         % "amqp-client"        % "3.3.5",
+    "net.jodah"            % "lyra"               % "0.4.1",
+    "com.blinkbox.books"  %% "common-scala-test"  % "0.3.0"  % "test"
+  )
 }
 
+parallelExecution := false

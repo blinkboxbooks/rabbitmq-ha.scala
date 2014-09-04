@@ -1,23 +1,25 @@
 package com.blinkboxbooks.hermes.rabbitmq
 
-import org.scalatest.junit.JUnitRunner
-import org.mockito.Mockito._
-import org.junit.runner.RunWith
-import org.scalatest.{FunSuite, BeforeAndAfter}
-import akka.testkit.{TestActorRef, TestKit}
-import akka.actor.ActorSystem
-import akka.util.Timeout
-import scala.concurrent.duration._
-import com.rabbitmq.client.{ConfirmListener, MessageProperties, Envelope, Channel}
-import org.mockito.{Matchers, ArgumentCaptor}
-import org.mockito.stubbing.Answer
-import org.mockito.invocation.InvocationOnMock
-import com.rabbitmq.client.AMQP.BasicProperties
 import java.io.IOException
+
+import akka.actor.ActorSystem
+import akka.testkit.{TestActorRef, TestKit}
+import akka.util.Timeout
+import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.{Channel, ConfirmListener, Envelope, MessageProperties}
+import org.junit.runner.RunWith
+import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{ArgumentCaptor, Matchers}
+import org.scalatest.junit.JUnitRunner
+import org.scalatest.{BeforeAndAfter, FunSuiteLike}
+
+import scala.concurrent.duration._
 import scala.language.postfixOps
 
 @RunWith(classOf[JUnitRunner])
-class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSuite with BeforeAndAfter {
+class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSuiteLike with BeforeAndAfter {
 
   val queueName = "TEST_QUEUE"
   val amqpTimeout = Timeout(10 seconds)

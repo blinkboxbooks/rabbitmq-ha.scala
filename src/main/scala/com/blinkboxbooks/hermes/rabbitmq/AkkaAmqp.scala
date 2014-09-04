@@ -1,16 +1,14 @@
 package com.blinkboxbooks.hermes.rabbitmq
 
-import com.rabbitmq.client._
-import akka.actor.{ActorLogging, ActorRef, Actor}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.pattern.ask
 import akka.util.Timeout
-import scala.util.Try
-import scala.util.Failure
-import scala.util.Success
+import com.blinkboxbooks.hermes.rabbitmq.AmqpPublisherActor._
+import com.rabbitmq.client._
+
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.concurrent.duration._
-import scala.Some
-import com.blinkboxbooks.hermes.rabbitmq.AmqpPublisherActor._
+import scala.util.{Failure, Success, Try}
 
 /**
  * Data of an AMQP message.
