@@ -1,4 +1,4 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import java.io.IOException
 
@@ -27,7 +27,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
   var channel: Channel = _
   var seqNo = 0L
   var confirmListenerArgument: ArgumentCaptor[ConfirmListener] = _
-  var publisher: TestActorRef[AmqpPublisherActor] = _
+  var publisher: TestActorRef[RabbitMqReliablePublisher] = _
   var consumer: TestActorRef[AmqpConsumerActor] = _
 
   def incAndGetSeqNo() = { seqNo += 1; seqNo }
@@ -52,13 +52,13 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
 
     confirmListenerArgument = ArgumentCaptor.forClass(classOf[ConfirmListener])
 
-    publisher = TestActorRef(new AmqpPublisherActor(channel, queueName, amqpTimeout) with TimeDilatedRetry)
+    publisher = TestActorRef(new RabbitMqReliablePublisher(channel, queueName, amqpTimeout) with TimeDilatedRetry)
     verify(channel).addConfirmListener(confirmListenerArgument.capture())
     assert(confirmListenerArgument.getValue != null)
   }
 
   test("An acked message will not be resent") {
-    publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+    publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     assert(publisher.underlyingActor.unconfirmedMessages.size == 1)
 
     confirmListenerArgument.getValue.handleAck(1L, false)
@@ -70,7 +70,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
 
   test("Multiple acked messages will not be resent") {
     for (i <- 1 to 3) {
-      publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+      publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     }
     assert(publisher.underlyingActor.unconfirmedMessages.size == 3)
 
@@ -82,7 +82,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
   }
 
   test("A nacked message will be resent") {
-    publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+    publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     assert(publisher.underlyingActor.unconfirmedMessages.size == 1)
 
     confirmListenerArgument.getValue.handleNack(1L, false)
@@ -96,7 +96,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
 
   test("Multiple nacked messages will be resent") {
     for (i <- 1 to 3) {
-      publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+      publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     }
     assert(publisher.underlyingActor.unconfirmedMessages.size == 3)
 
@@ -116,7 +116,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
       when(channel).basicPublish(Matchers.any(classOf[String]), Matchers.eq(queueName),
         Matchers.any(classOf[BasicProperties]), Matchers.any(classOf[Array[Byte]]))
 
-    publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+    publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     assert(publisher.underlyingActor.unconfirmedMessages.size == 1)
 
     confirmListenerArgument.getValue.handleAck(2L, false)
@@ -136,7 +136,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
         Matchers.any(classOf[BasicProperties]), Matchers.any(classOf[Array[Byte]]))
 
     for (i <- 1 to 3) {
-      publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+      publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     }
     assert(publisher.underlyingActor.unconfirmedMessages.size === 3)
 
@@ -155,7 +155,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
       when(channel).basicPublish(Matchers.any(classOf[String]), Matchers.eq(queueName),
         Matchers.any(classOf[BasicProperties]), Matchers.any(classOf[Array[Byte]]))
 
-    publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+    publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     assert(1 === publisher.underlyingActor.unconfirmedMessages.size)
 
     confirmListenerArgument.getValue.handleAck(4L, false)
@@ -173,7 +173,7 @@ class AkkaAmqpActorsTests extends TestKit(ActorSystem("test-system")) with FunSu
       when(channel).basicPublish(Matchers.any(classOf[String]), Matchers.eq(queueName),
         Matchers.any(classOf[BasicProperties]), Matchers.any(classOf[Array[Byte]]))
 
-    publisher ! AmqpPublisherActor.PublishRequest(getNewMessage)
+    publisher ! RabbitMqReliablePublisher.PublishRequest(getNewMessage)
     assert(1 === publisher.underlyingActor.unconfirmedMessages.size)
 
     confirmListenerArgument.getValue.handleNack(4L, false)

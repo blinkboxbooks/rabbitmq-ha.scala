@@ -1,9 +1,9 @@
-package com.blinkboxbooks.hermes.rabbitmq
+package com.blinkbox.books.rabbitmq
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.pattern.ask
 import akka.util.Timeout
-import com.blinkboxbooks.hermes.rabbitmq.AmqpPublisherActor._
+import com.blinkbox.books.rabbitmq.RabbitMqReliablePublisher._
 import com.rabbitmq.client._
 
 import scala.collection.immutable.{HashMap, TreeSet}
@@ -77,10 +77,10 @@ class AmqpConsumerActor(channel: Channel, val actor: ActorRef, queueName: String
 /**
  * Actor that publishes incoming messages to a configured AMQP exchange.
  */
-object AmqpPublisherActor {
+object RabbitMqReliablePublisher {
 
   def apply(channel: Channel, queueName: String, amqpTimeout: Timeout) =
-    new AmqpPublisherActor(channel, queueName, amqpTimeout) with AmqpRetry
+    new RabbitMqReliablePublisher(channel, queueName, amqpTimeout) with AmqpRetry
 
   case class PublishRequest(msg: Message, attempts: Int = 0)
 
@@ -98,7 +98,7 @@ trait AmqpRetry {
   val MaxAttempts = 4
 }
 
-class AmqpPublisherActor(channel: Channel, queueName: String, amqpTimeout: Timeout) extends Actor with ActorLogging {
+class RabbitMqReliablePublisher(channel: Channel, queueName: String, amqpTimeout: Timeout) extends Actor with ActorLogging {
   this: AmqpRetry =>
 
   implicit val timeout = amqpTimeout
