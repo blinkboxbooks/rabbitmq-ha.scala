@@ -1,5 +1,13 @@
 # Change log
 
+## 6.0.4 ([#29](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/29) 2014-09-04 13:26:24)
+
+Cross compiles to Scala 2.11
+
+### Improvements
+
+* Now cross-compiles to Scala 2.11
+
 ## 6.0.3 ([#28](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/28) 2014-08-21 14:14:16)
 
 Cancel scheduled timeouts
