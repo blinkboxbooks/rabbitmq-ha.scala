@@ -9,16 +9,15 @@ organization := "com.blinkbox.books.hermes"
 crossScalaVersions := Seq("2.10.4", "2.11.2")
 
 libraryDependencies ++= {
-  val akkaV = "2.3.5"
+  val akkaV = "2.3.6"
   Seq(
-    "com.blinkbox.books"  %%  "common-config"      %  "1.1.0",
+    "com.blinkbox.books"  %%  "common-config"      %  "1.2.1",
     "com.blinkbox.books"  %%  "common-messaging"   %  "1.1.3",
     "com.typesafe.akka"   %%  "akka-actor"         %  akkaV,
     "com.typesafe.akka"   %%  "akka-testkit"       %  akkaV,
     "com.typesafe.akka"   %%  "akka-slf4j"         %  akkaV,
     "com.rabbitmq"         %  "amqp-client"        %  "3.3.5",
     "net.jodah"            %  "lyra"               %  "0.4.1",
-    "org.joda"             %  "joda-convert"       %  "1.6",
     "com.blinkbox.books"  %%  "common-scala-test"  %  "0.3.0"   % "test"
   )
 }
