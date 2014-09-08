@@ -1,5 +1,11 @@
 # Change log
 
+## 6.0.5 ([#30](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/30) 2014-09-08 13:06:51)
+
+Updated dependencies
+
+Patch to update dependency versions
+
 ## 6.0.4 ([#29](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/29) 2014-09-04 13:26:24)
 
 Cross compiles to Scala 2.11
