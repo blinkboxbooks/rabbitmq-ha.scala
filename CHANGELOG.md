@@ -1,5 +1,13 @@
 # Change log
 
+## 6.0.6 ([#31](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/31) 2014-09-09 16:03:30)
+
+Bumped common-messaging
+
+### Improvements
+
+* Bumped common-messaging
+
 ## 6.0.5 ([#30](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/30) 2014-09-08 13:06:51)
 
 Updated dependencies
