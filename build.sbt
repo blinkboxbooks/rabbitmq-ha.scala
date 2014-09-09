@@ -12,7 +12,7 @@ libraryDependencies ++= {
   val akkaV = "2.3.6"
   Seq(
     "com.blinkbox.books"  %%  "common-config"      %  "1.2.1",
-    "com.blinkbox.books"  %%  "common-messaging"   %  "1.1.3",
+    "com.blinkbox.books"  %%  "common-messaging"   %  "1.1.4",
     "com.typesafe.akka"   %%  "akka-actor"         %  akkaV,
     "com.typesafe.akka"   %%  "akka-testkit"       %  akkaV,
     "com.typesafe.akka"   %%  "akka-slf4j"         %  akkaV,
