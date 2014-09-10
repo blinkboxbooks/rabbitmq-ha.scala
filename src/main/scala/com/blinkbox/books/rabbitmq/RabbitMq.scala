@@ -1,14 +1,16 @@
 package com.blinkbox.books.rabbitmq
 
 import com.blinkbox.books.config.RichConfig
-import com.rabbitmq.client.{ Connection, ConnectionFactory }
+import com.rabbitmq.client.{ Connection, ConnectionFactory, PossibleAuthenticationFailureException }
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import net.jodah.lyra
 import net.jodah.lyra.Connections
-import net.jodah.lyra.config.{ RetryPolicies, RecoveryPolicy, RetryPolicy }
+import net.jodah.lyra.config.{ Config => LyraConfig, RetryPolicies, RecoveryPolicy, RetryPolicy }
 import net.jodah.lyra.util.{ Duration => LyraDuration }
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 /**
@@ -35,7 +37,7 @@ object RabbitMqConfig {
 /**
  * A collection of common functionality for simplifying access to RabbitMQ.
  */
-object RabbitMq {
+object RabbitMq extends StrictLogging {
 
   /**
    * Factory method for creating a reliable connection to a RabbitMQ broker.
@@ -51,13 +53,13 @@ object RabbitMq {
    */
   def reliableConnection(config: RabbitMqConfig): Connection = {
     val factory = connectionFactory(config)
-    val lyraConfig = new lyra.config.Config()
+    val lyraConfig = new LyraConfig()
       .withRecoveryPolicy(new RecoveryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
       .withRetryPolicy(new RetryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
 
-    Connections.create(factory, lyraConfig)
+    createConnection(factory, lyraConfig, config.initialRetryInterval)
   }
 
   /**
@@ -81,8 +83,25 @@ object RabbitMq {
       .withConnectionRecoveryPolicy(new RecoveryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
 
-    Connections.create(factory, lyraConfig)
+    createConnection(factory, lyraConfig, config.initialRetryInterval)
   }
+
+  private def createConnection(connectionFactory: ConnectionFactory, lyraConfig: LyraConfig, retryInterval: FiniteDuration) =
+    retryIfAuthFails(retryInterval) { Connections.create(connectionFactory, lyraConfig) }
+
+  /**
+   * Retry the given operation in face of an authentication failure,
+   * and pass on any other exceptions thrown.
+   */
+  @tailrec
+  def retryIfAuthFails[T](retryInterval: FiniteDuration)(op: => T): T =
+    try op
+    catch {
+      case e: PossibleAuthenticationFailureException =>
+        logger.error(s"Possible authentication failure, retrying (${e.getMessage})")
+        Thread.sleep(retryInterval.toMillis)
+        retryIfAuthFails(retryInterval)(op)
+    }
 
   /** Convert between Scala and Lyra duration types. */
   private def toDuration(duration: FiniteDuration): lyra.util.Duration = LyraDuration.seconds(duration.toSeconds)
