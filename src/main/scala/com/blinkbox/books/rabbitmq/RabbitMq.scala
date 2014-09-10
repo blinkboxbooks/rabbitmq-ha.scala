@@ -98,7 +98,7 @@ object RabbitMq extends StrictLogging {
     try op
     catch {
       case e: PossibleAuthenticationFailureException =>
-        logger.warn("Possible authentication failure, retrying")
+        logger.error(s"Possible authentication failure, retrying (${e.getMessage})")
         Thread.sleep(retryInterval.toMillis)
         retryIfAuthFails(retryInterval)(op)
     }
