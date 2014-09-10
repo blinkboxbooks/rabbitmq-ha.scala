@@ -1,17 +1,21 @@
 package com.blinkbox.books.rabbitmq
 
+import com.blinkbox.books.test.MockitoSyrup
 import com.rabbitmq.client.Connection
 import com.typesafe.config.{ ConfigFactory, ConfigException }
+import com.rabbitmq.client.PossibleAuthenticationFailureException
 import java.net.URI
+import org.joda.time.LocalTime
 import net.jodah.lyra.config.{ ConfigurableChannel, ConfigurableConnection }
 import org.junit.runner.RunWith
+import org.mockito.Mockito._
+import org.mockito.Matchers._
 import org.scalatest.{ BeforeAndAfterEach, FunSuite }
 import org.scalatest.junit.JUnitRunner
-import org.scalatest.mock.MockitoSugar
 import scala.concurrent.duration._
 
 @RunWith(classOf[JUnitRunner])
-class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
+class RabbitMqTest extends FunSuite with MockitoSyrup with BeforeAndAfterEach {
 
   var connection: Option[Connection] = None
 
@@ -43,6 +47,44 @@ class RabbitMqTest extends FunSuite with MockitoSugar with BeforeAndAfterEach {
   test("Create RabbitMQ config without required parameter") {
     val defaultConfig = ConfigFactory.load()
     intercept[ConfigException.Missing] { RabbitMqConfig(defaultConfig) }
+  }
+
+  val retryInterval = 50.millis
+
+  test("Retry operation if authentication fails") {
+    val op = mock[Int => String]
+    val ex = new PossibleAuthenticationFailureException("Test auth exception")
+    when(op.apply(42))
+      .thenAnswer(() => throw ex)
+      .thenAnswer(() => throw ex)
+      .thenAnswer(() => throw ex)
+      .thenReturn("foo")
+    val startTime = LocalTime.now
+
+    assert(RabbitMq.retryIfAuthFails(retryInterval) { op(42) } == "foo", "Should get the final successful result")
+
+    // Check we retried the operation.
+    verify(op, times(4)).apply(anyInt)
+
+    // Check that we waited at least the expected amount of time.
+    // Note that Thread.sleep isn't very accurate, so we give it some slack here.
+    assert(LocalTime.now.minusMillis(120).isAfter(startTime))
+  }
+
+  test("No retry of operation if authentication doesn't fail") {
+    val op = mock[Int => String]
+    when(op.apply(42)).thenReturn("foo")
+    assert(RabbitMq.retryIfAuthFails(retryInterval) { op(42) } == "foo")
+    verify(op, times(1)).apply(anyInt)
+  }
+
+  test("No retry of operation in the case of non-authentaction failure") {
+    val op = mock[Int => String]
+    val ex = new RuntimeException("Test non-auth exception")
+    when(op.apply(42)).thenThrow(ex)
+    val thrown = intercept[RuntimeException] { RabbitMq.retryIfAuthFails(retryInterval) { op(42) } }
+    assert(thrown eq ex, "Should pass on the thrown exception")
+    verify(op, times(1)).apply(anyInt)
   }
 
   // Can't easily test this without a real broker, hence this test is disabled.
