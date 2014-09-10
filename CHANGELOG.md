@@ -1,5 +1,14 @@
 # Change log
 
+## 6.0.7 ([#32](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/32) 2014-09-10 12:32:57)
+
+CP-1774  Retry connection creation when authentication fails.
+
+### Improvement
+
+- `RabbitMq.reliableConnection` and `RabbitMq.recoveredConnection` will now retry connection creation even when a `PossibleAuthenticationFailureException` is thrown (the `lyra` library treats auth errors as unrecoverable). Retry attempts are logged at `Error` level.
+
+
 ## 6.0.6 ([#31](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/31) 2014-09-09 16:03:30)
 
 Bumped common-messaging
