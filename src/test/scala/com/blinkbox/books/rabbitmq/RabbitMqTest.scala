@@ -1,9 +1,8 @@
 package com.blinkbox.books.rabbitmq
 
 import com.blinkbox.books.test.MockitoSyrup
-import com.rabbitmq.client.Connection
+import com.rabbitmq.client.{ Connection, PossibleAuthenticationFailureException }
 import com.typesafe.config.{ ConfigFactory, ConfigException }
-import com.rabbitmq.client.PossibleAuthenticationFailureException
 import java.net.URI
 import org.joda.time.LocalTime
 import net.jodah.lyra.config.{ ConfigurableChannel, ConfigurableConnection }
