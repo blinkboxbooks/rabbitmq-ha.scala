@@ -1,5 +1,13 @@
 # Change log
 
+## 7.0.0 ([#33](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/33) 2014-09-12 13:58:15)
+
+Support for multiple binding arguments
+
+### Breaking changes
+
+* Added support for multiple binding arguments on the consumer
+
 ## 6.0.7 ([#32](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/32) 2014-09-10 12:32:57)
 
 CP-1774  Retry connection creation when authentication fails.
