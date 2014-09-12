@@ -99,7 +99,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
       case "headers" | "match" =>
         queueConfig.bindingArguments.foreach { bindingArguments =>
           channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", bindingArguments.asJava)
-          log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${bindingArguments}")
+          log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings $bindingArguments")
         }
     }
 
@@ -166,11 +166,8 @@ object RabbitMqConsumer {
       val exchangeType = config.getString("exchangeType")
       val routingKeys = if (config.hasPath("routingKeys")) config.getStringList("routingKeys").asScala.toList else List()
       val prefetchCount = config.getInt("prefetchCount")
-      val bindingArgs = config.getListOption("bindingArguments")
-
-      val mapArgs = bindingArgs.flatMap(f => Option(f.map(_.unwrapped.asScala.toMap))) // mutable to immutable map
-
-      QueueConfiguration(queueName, exchangeName, exchangeType, routingKeys, mapArgs.getOrElse(List()), prefetchCount)
+      val bindingArgs = config.getListOption("bindingArguments").flatMap(f => Option(f.map(_.unwrapped.asScala.toMap)))
+      QueueConfiguration(queueName, exchangeName, exchangeType, routingKeys, bindingArgs.getOrElse(List()), prefetchCount)
     }
   }
 
