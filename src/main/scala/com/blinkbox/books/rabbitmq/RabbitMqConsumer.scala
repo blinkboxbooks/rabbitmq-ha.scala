@@ -99,8 +99,8 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
       case "headers" | "match" =>
         queueConfig.bindingArguments.foreach { bindingArguments =>
           channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", bindingArguments.asJava)
+          log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${bindingArguments}")
         }
-        log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${queueConfig.bindingArguments}")
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
