@@ -46,7 +46,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   val messageTimestamp = new Date()
 
   private def topicExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "topic", List("routing.key.1", "routing.key.2"), List(), 10)
-  private def headerExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "headers", List(), List(Map("content-type" -> "test-content-type")), 10)
+  private def headerExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "headers", List(), List(Map("content-type" -> "test-content-type"), Map("content-type" -> "another-type")), 10)
   private def fanoutExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "fanout", List(), List(), 10)
 
   private def envelope(config: QueueConfiguration) = 
@@ -198,7 +198,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
       EventFilter[T](pattern = ".*invalid.*", source = actor.path.toString, occurrences = 1) intercept {
         // Trigger input message.
         consumer.handleDelivery(consumerTag, envelope(headerExchangeConfig), properties, messageContent.getBytes(UTF_8))
-        expectNoMsg
+        expectNoMsg()
       }
       rejectWaiter.await()
       verify(channel).basicReject(envelope(headerExchangeConfig).getDeliveryTag, false)
@@ -229,6 +229,9 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   test("Consumer with header exchange") {
     val (channel, _, _, _, _) = setupActor(headerExchangeConfig)
     verify(channel).exchangeDeclare(anyString, matcherEq("headers"), matcherEq(true))
+    headerExchangeConfig.bindingArguments.foreach { bindingArguments =>
+      verify(channel).queueBind(headerExchangeConfig.queueName, headerExchangeConfig.exchangeName, "", bindingArguments.asJava)
+    }
   }
 
   test("Consumer with topic exchange") {
