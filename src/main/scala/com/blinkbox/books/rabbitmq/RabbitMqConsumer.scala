@@ -1,18 +1,18 @@
 package com.blinkbox.books.rabbitmq
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
-import akka.actor.Status.{ Success, Failure }
-import com.blinkbox.books.messaging._
-import com.rabbitmq.client._
-import com.typesafe.config.{ Config }
-import java.nio.charset.{ Charset }
-import org.joda.time.DateTime
-import scala.collection.JavaConverters._
-import scala.collection.JavaConversions._
-import scala.util.Try
-import com.blinkbox.books.config.RichConfig
+import java.nio.charset.Charset
 
-import RabbitMqConsumer._
+import akka.actor.Status.{Failure, Success}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status}
+import com.blinkbox.books.config.RichConfig
+import com.blinkbox.books.messaging._
+import com.blinkbox.books.rabbitmq.RabbitMqConsumer._
+import com.rabbitmq.client._
+import com.typesafe.config.Config
+import org.joda.time.DateTime
+
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 /**
  * This actor class consumes messages from RabbitMQ topic exchanges bound to a queue,
@@ -97,8 +97,10 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
           log.debug(s"Bound queue ${queueConfig.queueName} to topic exchange ${queueConfig.exchangeName}, with routing key $routingKey")
         }
       case "headers" | "match" =>
-        channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", queueConfig.headerArgs.asJava)
-        log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${queueConfig.headerArgs}")
+        queueConfig.bindingArguments.foreach { bindingArguments =>
+          channel.queueBind(queueConfig.queueName, queueConfig.exchangeName, "", bindingArguments.asJava)
+        }
+        log.debug(s"Bound queue ${queueConfig.queueName} to header exchange ${queueConfig.exchangeName} with bindings ${queueConfig.bindingArguments}")
     }
 
     channel.basicConsume(queueConfig.queueName, false, consumerTag, newConsumer)
@@ -109,9 +111,8 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     val timestamp = new DateTime(Option(msg.properties.getTimestamp).getOrElse(DateTime.now)) // To cope with legacy messages.
     val mediaType = Option(msg.properties.getContentType).map(MediaType(_)).getOrElse(ContentType.XmlContentType.mediaType)
 
-    val encoding = Option(msg.properties.getContentEncoding)
-      .map(Charset.forName)
-    val messageId = Option(msg.properties.getMessageId).getOrElse(EventHeader.generateId) // To cope with legacy messages.
+    val encoding = Option(msg.properties.getContentEncoding).map(Charset.forName)
+    val messageId = Option(msg.properties.getMessageId).getOrElse(EventHeader.generateId()) // To cope with legacy messages.
     // TBD: val flowId = Option(msg.properties.getCorrelationId())
 
     val headers = Option(msg.properties.getHeaders).map(_.asScala)
@@ -133,24 +134,23 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
       self ! RabbitMqMessage(deliveryTag, envelope, properties, body)
     }
   }
-
 }
 
 object RabbitMqConsumer {
 
   case object Init
   case class QueueConfiguration(queueName: String, exchangeName: String, exchangeType: String,
-    routingKeys: Seq[String], headerArgs: Map[String, AnyRef], prefetchCount: Int) {
+    routingKeys: Seq[String], bindingArguments: List[Map[String, AnyRef]], prefetchCount: Int) {
 
     if (!Set("fanout", "topic", "headers", "match").contains(exchangeType))
       throw new IllegalArgumentException(s"Illegal exchange type '$exchangeType'")
 
     // Check bindingArguments and routingKey mutual exclusion.
-    if (routingKeys.nonEmpty && headerArgs.nonEmpty)
+    if (routingKeys.nonEmpty && bindingArguments.nonEmpty)
       throw new IllegalArgumentException("bindingArguments and routingKey are mutually exclusive")
 
     // Check that binding arguments are specified if we use a header exchange.
-    if ((exchangeType == "headers" || exchangeType == "match") && headerArgs.isEmpty)
+    if ((exchangeType == "headers" || exchangeType == "match") && bindingArguments.isEmpty)
       throw new IllegalArgumentException("Must specify binding arguments for header exchange")
 
     if (exchangeType == "topic" && routingKeys.isEmpty) {
@@ -166,11 +166,11 @@ object RabbitMqConsumer {
       val exchangeType = config.getString("exchangeType")
       val routingKeys = if (config.hasPath("routingKeys")) config.getStringList("routingKeys").asScala.toList else List()
       val prefetchCount = config.getInt("prefetchCount")
-      val bindingArgs = config.getConfigObjectOption("bindingArguments")
+      val bindingArgs = config.getListOption("bindingArguments")
 
-      val mapArgs = bindingArgs.flatMap(f => Option(f.unwrapped.asScala.toMap)) // mutable to immutable map
+      val mapArgs = bindingArgs.flatMap(f => Option(f.map(_.unwrapped.asScala.toMap))) // mutable to immutable map
 
-      QueueConfiguration(queueName, exchangeName, exchangeType, routingKeys, mapArgs.getOrElse(Map()), prefetchCount)
+      QueueConfiguration(queueName, exchangeName, exchangeType, routingKeys, mapArgs.getOrElse(List()), prefetchCount)
     }
   }
 
@@ -184,7 +184,6 @@ object RabbitMqConsumer {
    * Actor whose sole responsibility is to ack or reject a single message, then stop.
    */
   private class EventHandlerCameo(channel: Channel, deliveryTag: Long) extends Actor with ActorLogging {
-
     def receive = {
       case Success(_) =>
         log.debug(s"acking message $deliveryTag")

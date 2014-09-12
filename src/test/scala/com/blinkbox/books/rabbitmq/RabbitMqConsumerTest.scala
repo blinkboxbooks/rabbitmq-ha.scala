@@ -1,29 +1,27 @@
 package com.blinkbox.books.rabbitmq
 
-import akka.actor.{ ActorRef, ActorSystem, Props, Status }
-import akka.testkit.{ EventFilter, ImplicitSender, TestActorRef, TestKit, TestProbe }
-import akka.util.Timeout
-import com.blinkbox.books.messaging._
-import com.blinkbox.books.test.MockitoSyrup
-import com.rabbitmq.client.{ ConfirmListener, MessageProperties, Envelope, Channel, Consumer }
-import com.rabbitmq.client.AMQP.BasicProperties
-import com.typesafe.config.{ Config, ConfigFactory }
-import java.io.IOException
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.charset.UnsupportedCharsetException
 import java.util.Date
+
+import akka.actor.{ActorRef, ActorSystem, Props, Status}
+import akka.testkit.{EventFilter, ImplicitSender, TestKit}
+import com.blinkbox.books.messaging._
+import com.blinkbox.books.rabbitmq.RabbitMqConsumerTest._
+import com.blinkbox.books.test.MockitoSyrup
+import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.{Channel, Consumer, Envelope}
+import com.typesafe.config.ConfigFactory
 import org.junit.runner.RunWith
-import org.mockito.{ Matchers, ArgumentCaptor }
-import org.mockito.Matchers.{ eq => matcherEq }
-import org.mockito.Matchers._
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.{eq => matcherEq, _}
 import org.mockito.Mockito._
-import org.mockito.stubbing.Answer
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.{ FunSuiteLike, BeforeAndAfter }
 import org.scalatest.concurrent.AsyncAssertions
+import org.scalatest.junit.JUnitRunner
+import org.scalatest.{BeforeAndAfter, FunSuiteLike}
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import RabbitMqConsumerTest._
 import scala.reflect.ClassTag
 
 object RabbitMqConsumerTest {
@@ -37,7 +35,7 @@ object RabbitMqConsumerTest {
 class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFactory.parseString(TestEventListener)))
   with ImplicitSender with FunSuiteLike with BeforeAndAfter with MockitoSyrup with AsyncAssertions {
 
-  import RabbitMqConsumer._
+  import com.blinkbox.books.rabbitmq.RabbitMqConsumer._
 
   val consumerTag = "consumer-tag"
   val originator = "originator"
@@ -47,9 +45,9 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   val messageContent = "<test>Test message</test>"
   val messageTimestamp = new Date()
 
-  private def topicExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "topic", List("routing.key.1", "routing.key.2"), Map[String, AnyRef](), 10)
-  private def headerExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "headers", List(), Map[String, AnyRef]("content-type" -> "test-content-type"), 10)
-  private def fanoutExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "fanout", List(), Map[String, AnyRef](), 10)
+  private def topicExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "topic", List("routing.key.1", "routing.key.2"), List(), 10)
+  private def headerExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "headers", List(), List(Map("content-type" -> "test-content-type")), 10)
+  private def fanoutExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "fanout", List(), List(), 10)
 
   private def envelope(config: QueueConfiguration) = 
     new Envelope(0, false, config.exchangeName, if (config.routingKeys.isEmpty) "" else config.routingKeys(0))
@@ -249,7 +247,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     assert(queueConfig.queueName == "test queue name" &&
       queueConfig.exchangeName == "test exchange name" &&
       queueConfig.routingKeys == List() &&
-      queueConfig.headerArgs == Map("foo" -> "1", "bar" -> 2) &&
+      queueConfig.bindingArguments == List(Map("foo" -> "1", "bar" -> 2)) &&
       queueConfig.prefetchCount == 1000)
   }
 
@@ -272,7 +270,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   }
 
   test("Header exchange config without header arguments") {
-    intercept[IllegalArgumentException] { headerExchangeConfig.copy(headerArgs = Map()) }
+    intercept[IllegalArgumentException] { headerExchangeConfig.copy(bindingArguments = List()) }
   }
 
   test("Topic exchange config without routing keys") {
