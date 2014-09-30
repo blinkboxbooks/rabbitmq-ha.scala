@@ -11,8 +11,8 @@ crossScalaVersions := Seq("2.10.4", "2.11.2")
 libraryDependencies ++= {
   val akkaV = "2.3.6"
   Seq(
-    "com.blinkbox.books"  %%  "common-config"      %  "1.2.1",
-    "com.blinkbox.books"  %%  "common-messaging"   %  "1.1.4",
+    "com.blinkbox.books"  %%  "common-config"      %  "1.4.1",
+    "com.blinkbox.books"  %%  "common-messaging"   %  "1.1.5",
     "com.typesafe.akka"   %%  "akka-actor"         %  akkaV,
     "com.typesafe.akka"   %%  "akka-testkit"       %  akkaV,
     "com.typesafe.akka"   %%  "akka-slf4j"         %  akkaV,
