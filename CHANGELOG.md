@@ -1,5 +1,13 @@
 # Change log
 
+## 7.1.0 ([#34](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/34) 2014-09-30 11:24:27)
+
+Bumped versions
+
+### New features
+
+* Bumped common-config and common-messaging
+
 ## 7.0.0 ([#33](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/33) 2014-09-12 13:58:15)
 
 Support for multiple binding arguments
