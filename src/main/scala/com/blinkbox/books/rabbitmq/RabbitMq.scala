@@ -59,7 +59,10 @@ object RabbitMq extends StrictLogging {
       .withRetryPolicy(new RetryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
 
-    createConnection(factory, lyraConfig, config.initialRetryInterval)
+    // Retry auth failures too.
+    lyraConfig.getRetryableExceptions.add(classOf[PossibleAuthenticationFailureException])
+
+    Connections.create(factory, lyraConfig)
   }
 
   /**
@@ -83,25 +86,11 @@ object RabbitMq extends StrictLogging {
       .withConnectionRecoveryPolicy(new RecoveryPolicy()
         .withBackoff(toDuration(config.initialRetryInterval), toDuration(config.maxRetryInterval)))
 
-    createConnection(factory, lyraConfig, config.initialRetryInterval)
+    // Retry auth failures too.
+    lyraConfig.getRetryableExceptions.add(classOf[PossibleAuthenticationFailureException])
+
+    Connections.create(factory, lyraConfig)
   }
-
-  private def createConnection(connectionFactory: ConnectionFactory, lyraConfig: LyraConfig, retryInterval: FiniteDuration) =
-    retryIfAuthFails(retryInterval) { Connections.create(connectionFactory, lyraConfig) }
-
-  /**
-   * Retry the given operation in face of an authentication failure,
-   * and pass on any other exceptions thrown.
-   */
-  @tailrec
-  def retryIfAuthFails[T](retryInterval: FiniteDuration)(op: => T): T =
-    try op
-    catch {
-      case e: PossibleAuthenticationFailureException =>
-        logger.error(s"Possible authentication failure, retrying (${e.getMessage})")
-        Thread.sleep(retryInterval.toMillis)
-        retryIfAuthFails(retryInterval)(op)
-    }
 
   /** Convert between Scala and Lyra duration types. */
   private def toDuration(duration: FiniteDuration): lyra.util.Duration = LyraDuration.seconds(duration.toSeconds)

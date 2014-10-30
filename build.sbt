@@ -17,7 +17,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"   %%  "akka-testkit"       %  akkaV,
     "com.typesafe.akka"   %%  "akka-slf4j"         %  akkaV,
     "com.rabbitmq"         %  "amqp-client"        %  "3.3.5",
-    "net.jodah"            %  "lyra"               %  "0.4.1",
+    "net.jodah"            %  "lyra"               %  "0.4.3",
     "com.blinkbox.books"  %%  "common-scala-test"  %  "0.3.0"   % "test"
   )
 }
