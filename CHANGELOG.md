@@ -1,5 +1,14 @@
 # Change log
 
+## 7.1.1 ([#35](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/35) 2014-10-30 13:30:55)
+
+CP-1911: make all auth failures retryable.
+
+### Improvement:
+
+- Upgrade Lyra and use new API to make all auth failures retryable.
+
+
 ## 7.1.0 ([#34](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/34) 2014-09-30 11:24:27)
 
 Bumped versions
