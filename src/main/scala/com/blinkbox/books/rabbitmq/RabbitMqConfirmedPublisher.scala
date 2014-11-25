@@ -66,7 +66,7 @@ class RabbitMqConfirmedPublisher(connection: Connection, config: PublisherConfig
 
 
   /** Ensure the required queues, exchanges and bindings are present. */
-  private def initConnection() {
+  private def initConnection(): Unit = {
     if (config.exchange.isEmpty && config.routingKey.isEmpty) {
       throw new IllegalArgumentException("Exchange name and RoutingKey both cannot be empty")
     }
@@ -177,7 +177,7 @@ object RabbitMqConfirmedPublisher {
       log.debug(s"Published message with ID ${event.header.id} with routing key '$routingKey'")
     }
 
-    private def complete(response: Status)(implicit cancellable: Cancellable) {
+    private def complete(response: Status)(implicit cancellable: Cancellable): Unit = {
       originator ! response
       context.stop(self)
       cancellable.cancel
@@ -206,7 +206,7 @@ object RabbitMqConfirmedPublisher {
 
       // Set content-type as a header as well as the property above, so that header exchanges can route on it.
       val allHeaders = fixedHeaders ++ optionalHeaders + ("content-type" -> event.body.contentType.mediaType.toString)
-      
+
       builder.headers(allHeaders.asJava)
 
       event.body.contentType.charset.foreach { charset => builder.contentEncoding(charset.name) }

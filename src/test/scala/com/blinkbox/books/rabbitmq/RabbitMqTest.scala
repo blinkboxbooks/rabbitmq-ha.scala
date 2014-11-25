@@ -18,7 +18,7 @@ class RabbitMqTest extends FunSuite with MockitoSyrup with BeforeAndAfterEach {
 
   var connection: Option[Connection] = None
 
-  override def afterEach {
+  override def afterEach: Unit = {
     connection.foreach(conn => if (conn.isOpen()) conn.close())
   }
 
