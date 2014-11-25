@@ -1,16 +1,17 @@
 package com.blinkbox.books.rabbitmq
 
-import com.blinkbox.books.config.RichConfig
-import com.rabbitmq.client.{ Connection, ConnectionFactory, PossibleAuthenticationFailureException }
-import com.typesafe.config.Config
-import com.typesafe.scalalogging.slf4j.StrictLogging
 import java.net.URI
 import java.util.concurrent.TimeUnit
+
+import com.blinkbox.books.config.RichConfig
+import com.rabbitmq.client.{Connection, ConnectionFactory, PossibleAuthenticationFailureException}
+import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 import net.jodah.lyra
 import net.jodah.lyra.Connections
-import net.jodah.lyra.config.{ Config => LyraConfig, RetryPolicies, RecoveryPolicy, RetryPolicy }
-import net.jodah.lyra.util.{ Duration => LyraDuration }
-import scala.annotation.tailrec
+import net.jodah.lyra.config.{RecoveryPolicy, RetryPolicy, Config => LyraConfig}
+import net.jodah.lyra.util.{Duration => LyraDuration}
+
 import scala.concurrent.duration._
 
 /**
