@@ -1,5 +1,13 @@
 # Change log
 
+## 8.0.0 ([#37](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/37) 2014-11-25 17:42:24)
+
+Bumped common-messaging
+
+### Breaking change
+
+- Bumped common-messaging which uses the new scala-logging -- incompatible with the older one.
+
 ## 7.1.2 ([#36](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/36) 2014-11-25 15:55:02)
 
 Bumped versions & updated to multi-project style
