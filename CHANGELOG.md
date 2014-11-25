@@ -1,5 +1,15 @@
 # Change log
 
+## 7.1.2 ([#36](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/36) 2014-11-25 15:55:02)
+
+Bumped versions & updated to multi-project style
+
+### Improvements
+
+* Bumped libraries version
+* Updated to multi-project style
+* Fixed some deprecation errors and warnings
+
 ## 7.1.1 ([#35](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/35) 2014-10-30 13:30:55)
 
 CP-1911: make all auth failures retryable.
