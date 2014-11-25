@@ -75,7 +75,7 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     log.error(e, s"Received invalid message:\n$msg")
   }
 
-  private def init() {
+  private def init(): Unit = {
     log.info("Initialising RabbitMQ channel")
     channel.basicQos(queueConfig.prefetchCount)
     val newConsumer = createConsumer(channel)

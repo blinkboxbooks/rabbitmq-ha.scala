@@ -81,9 +81,9 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture(), any[Array[Byte]])
 
       // Should set content type as both property and header of message.
-      val expectedContentType = MediaType("application/vnd.blinkbox.books.events.testevent.v1+json").toString
+      val expectedContentType = MediaType("application/vnd.blinkbox.books.events.testevent.v1+json").toString()
       assert(captor.getValue.getContentType == expectedContentType)
-      assert(captor.getValue.getHeaders().get("content-type") == expectedContentType)
+      assert(captor.getValue.getHeaders.get("content-type") == expectedContentType)
     }
   }
 
@@ -102,7 +102,7 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
       verify(channel).basicPublish(matcherEq(""), matcherEq(Topic), captor.capture(), any[Array[Byte]])
 
       // Should have stamped binding arguments on the outgoing message.
-      val msgHeaders = captor.getValue().getHeaders().asScala
+      val msgHeaders = captor.getValue.getHeaders.asScala
       val interestingHeaders = msgHeaders.filterKeys(key => bindingArgs.keys.toSet.contains(key))
       assert(interestingHeaders == bindingArgs)
     }
@@ -129,7 +129,7 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
     system.eventStream.subscribe(deadLetterProbe.ref, classOf[DeadLetter])
 
     // Use a real, concurrent actor for this test case, with a timeout that's
-    // long enough to not trigger before we fake the response, 
+    // long enough to not trigger before we fake the response,
     // but short enough to not make the test annoyingly slow to run.
     val timeout = 1000.millis
     val (actor, channel) = initActor(Some(ExchangeName), Some(Topic), None, timeout)
@@ -182,7 +182,7 @@ with ImplicitSender with FunSuiteLike with MockitoSyrup with AsyncAssertions {
     (newActor, channel)
   }
 
-  private def sendEventAndWait(e: Event, sourceActor: ActorRef) {
+  private def sendEventAndWait(e: Event, sourceActor: ActorRef): Unit = {
     // Wait for message with the unique ID.
     EventFilter.debug(pattern = s".*${e.header.id}.*", occurrences = 1).intercept {
       sourceActor ! e

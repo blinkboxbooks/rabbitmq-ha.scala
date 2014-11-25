@@ -112,10 +112,10 @@ class RabbitMqReliablePublisher(channel: Channel, queueName: String, amqpTimeout
   // enable RabbitMQ Confirms
   channel.confirmSelect()
   channel.addConfirmListener(new ConfirmListener {
-    override def handleAck(seqNo: Long, multiple: Boolean) {
+    override def handleAck(seqNo: Long, multiple: Boolean): Unit = {
       self ! AckMessage(seqNo, multiple)
     }
-    override def handleNack(seqNo: Long, multiple: Boolean) {
+    override def handleNack(seqNo: Long, multiple: Boolean): Unit = {
       log.warning(s"Received NACK with seqNo #$seqNo (multiple:$multiple)")
       self ! NackMessage(seqNo, multiple)
     }

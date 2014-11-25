@@ -49,7 +49,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
   private def headerExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "headers", List(), List(Map("content-type" -> "test-content-type"), Map("content-type" -> "another-type")), 10)
   private def fanoutExchangeConfig = QueueConfiguration("TestQueue", "TestExchange", "fanout", List(), List(), 10)
 
-  private def envelope(config: QueueConfiguration) = 
+  private def envelope(config: QueueConfiguration) =
     new Envelope(0, false, config.exchangeName, if (config.routingKeys.isEmpty) "" else config.routingKeys(0))
 
   test("Consume message that succeeds, with all optional header fields set") {
@@ -116,7 +116,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     verify(channel).basicAck(envelope(headerExchangeConfig).getDeliveryTag, false)
     verify(channel, never).basicReject(anyLong, anyBoolean)
   }
-  
+
   test("Consumer fails to initialise") {
     val channel = mock[Channel]
     val ex = new RuntimeException("Test exception in initialistion")
@@ -130,15 +130,15 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
       // Should respond with failure to client.
       expectMsgType[Status.Failure]
     }
-    
+
   }
-  
+
   test("Consume JSON message") {
     val (channel, actor, consumer, ackWaiter, rejectWaiter) = setupActor(headerExchangeConfig)
 
     val mediaType = "application/vnd.blinkbox.books.events.test.event.v2+json"
     val properties = basicProperties.contentType(mediaType).build()
-    
+
     // Send a test message through the callback.
     consumer.handleDelivery(consumerTag, envelope(headerExchangeConfig), properties, messageContent.getBytes(UTF_8))
 
@@ -291,7 +291,7 @@ class RabbitMqConsumerTest extends TestKit(ActorSystem("test-system", ConfigFact
     .contentEncoding(UTF_8.name)
     .contentType(ContentType.XmlContentType.mediaType.toString())
 
-  private def waitUntilStarted(actor: ActorRef) {
+  private def waitUntilStarted(actor: ActorRef): Unit = {
     actor ! Init
     within(900.millis) {
       expectMsgType[Status.Success]
