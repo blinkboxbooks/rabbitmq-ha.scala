@@ -11,7 +11,6 @@ import com.rabbitmq.client._
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
-import scala.collection
 import scala.collection.JavaConverters._
 import scala.util.Try
 
