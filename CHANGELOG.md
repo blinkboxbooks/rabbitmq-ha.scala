@@ -1,5 +1,13 @@
 # Change log
 
+## 8.1.0 ([#38](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/38) 2014-11-28 16:19:03)
+
+Add additional headers
+
+### New feature
+
+- Appends additional, arbitrary fields to outbound messages.
+
 ## 8.0.0 ([#37](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/37) 2014-11-25 17:42:24)
 
 Bumped common-messaging
