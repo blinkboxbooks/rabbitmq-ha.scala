@@ -205,7 +205,7 @@ object RabbitMqConfirmedPublisher {
       val optionalHeaders: Map[String, Object] = List(userIdHeader, transactionIdHeader).flatten.toMap
 
       // Set content-type as a header as well as the property above, so that header exchanges can route on it.
-      val allHeaders = fixedHeaders ++ optionalHeaders + ("content-type" -> event.body.contentType.mediaType.toString)
+      val allHeaders = event.header.additional ++ fixedHeaders ++ optionalHeaders + ("content-type" -> event.body.contentType.mediaType.toString)
 
       builder.headers(allHeaders.asJava)
 

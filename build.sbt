@@ -10,7 +10,7 @@ lazy val root = (project in file(".")).
       val akkaV = "2.3.7"
       Seq(
         "com.blinkbox.books"  %%  "common-config"      %  "2.0.1",
-        "com.blinkbox.books"  %%  "common-messaging"   %  "2.0.0",
+        "com.blinkbox.books"  %%  "common-messaging"   %  "2.1.0",
         "com.typesafe.akka"   %%  "akka-actor"         %  akkaV,
         "com.typesafe.akka"   %%  "akka-testkit"       %  akkaV,
         "com.typesafe.akka"   %%  "akka-slf4j"         %  akkaV,
