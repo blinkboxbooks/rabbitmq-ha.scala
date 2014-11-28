@@ -11,6 +11,7 @@ import com.rabbitmq.client._
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
+import scala.collection
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -118,10 +119,15 @@ class RabbitMqConsumer(channel: Channel, queueConfig: QueueConfiguration, consum
     val headers = Option(msg.properties.getHeaders).map(_.asScala)
     val transactionId = headers.flatMap(_.get(TransactionIdHeader)).map(_.toString)
     val userId = headers.flatMap(_.get(UserIdHeader)).map(_.toString)
+    val additional = headers.getOrElse(Map[String, String]()).collect {
+      case (k: String, v: String) => (k, v)
+    }.toMap
 
     val originator = Option(msg.properties.getAppId).getOrElse("unknown") // To cope with legacy messages.
-    Event(EventHeader(messageId, new DateTime(timestamp), originator, userId, transactionId),
-      EventBody(msg.body, ContentType(mediaType, encoding)))
+    Event(
+      EventHeader(messageId, new DateTime(timestamp), originator, userId, transactionId, additional),
+      EventBody(msg.body, ContentType(mediaType, encoding))
+    )
   }
 
   /**
