@@ -1,5 +1,13 @@
 # Change log
 
+## 8.1.1 ([#39](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/39) 2014-12-11 17:25:41)
+
+Bumped libraries
+
+### Improvements
+
+- Bumped libraries
+
 ## 8.1.0 ([#38](https://git.mobcastdev.com/Hermes/rabbitmq-ha/pull/38) 2014-11-28 16:19:03)
 
 Add additional headers
