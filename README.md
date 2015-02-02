@@ -1,4 +1,4 @@
-# Rabbit-MQ HA Library [![Build Status](http://grisham:8111/app/rest/builds/buildType:%28id:Books_Platform_Hermes_RabbitmqHa_BuildTestPublish%29/statusIcon)](http://grisham:8111/viewType.html?buildTypeId=Books_Platform_Hermes_RabbitmqHa_BuildTestPublish&guest=1)
+# Rabbit-MQ HA Library
 
 This library contains various helpers classes for interacting with RabbitMQ in a standard, reliable way.
 
